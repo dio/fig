@@ -6,6 +6,7 @@ routing, Jev decisions, caching, guardrails (including bring-your-own), LLM rout
 API access and WAF inspection.
 
 - [Design](docs/DESIGN.md): responsibilities, semantics, invariants and examples.
+- [Configuration draft](docs/CONFIG.md): versioned resources, attachments and next actions.
 - [Match primitive](docs/primitives/MATCH.md): specification, preparation, evaluation and host boundaries.
 - [Rationale](docs/RATIONALE.md): source findings, tradeoffs and open decisions.
 - [BoE Coraza WAF case study](docs/case-studies/BOE-CORAZA-WAF.md): reuse boundaries, migration scope and effort estimate.
@@ -39,3 +40,7 @@ python3 spike/envoy/verify.py
 
 See the [walkthrough and qualification results](spike/envoy/README.md) for the separate
 native/Docker pins and SDK limitation.
+
+The native fixture now includes a minimal Coraza WAF stage: selected policy → header
+inspection → continue/block/error, including detection-only mode. See the
+[WAF cases](spike/envoy/README.md#waf-selection-and-next-action-spike).

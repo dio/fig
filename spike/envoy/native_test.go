@@ -131,6 +131,51 @@ func TestNativeMatch(t *testing.T) {
 			t.Fatalf("%d %v %v", resp.StatusCode, result, err)
 		}
 	})
+	t.Run("waf-selection-and-next-action", func(t *testing.T) {
+		cases := []struct {
+			name, path, attack, policy, action, matched string
+			status                                      int
+		}{
+			{"clean", "/chat", "", "chat-policy", "continue", "false", 200},
+			{"block", "/chat", "attack", "chat-policy", "block", "true", 403},
+			{"detect-only", "/observe", "attack", "observe-policy", "continue", "true", 200},
+			{"baseline-block", "/headers", "attack", "baseline", "block", "true", 403},
+			{"unknown-policy", "/unconfigured", "", "unknown-policy", "error", "false", 503},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				before := received.Load()
+				req, err := http.NewRequest(http.MethodPost, process.URL+tc.path, strings.NewReader(`{"model":"support-chat"}`))
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set("content-type", "application/json")
+				req.Header.Set("x-fig-attack", tc.attack)
+				req.Header.Set("x-fig-policy", "observe-policy")
+				req.Header.Set("x-fig-waf-action", "continue")
+				resp, err := client.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer resp.Body.Close()
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if resp.StatusCode != tc.status || resp.Header.Get("x-fig-waf-action") != tc.action ||
+					resp.Header.Get("x-fig-waf-matched") != tc.matched || resp.Header.Get("x-fig-waf-policy") != tc.policy {
+					t.Fatalf("status=%d headers=%v body=%s", resp.StatusCode, resp.Header, body)
+				}
+				expected := before
+				if tc.status == 200 {
+					expected++
+				}
+				if received.Load() != expected {
+					t.Fatalf("backend receipt got %d want %d", received.Load(), expected)
+				}
+			})
+		}
+	})
 	t.Run("concurrent", func(t *testing.T) {
 		before := received.Load()
 		var wg sync.WaitGroup

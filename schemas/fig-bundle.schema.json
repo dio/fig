@@ -1,0 +1,457 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fig bundle structural draft",
+  "type": "object",
+  "properties": {
+    "apiVersion": {
+      "const": "fig/v1alpha1"
+    },
+    "scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "fig.match/v1alpha1"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "spec": {
+                "type": "object",
+                "properties": {
+                  "phase": {
+                    "enum": [
+                      "request-headers",
+                      "request-body-complete"
+                    ]
+                  },
+                  "outputType": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "facts": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "extractor": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "enum": [
+                            "string",
+                            "boolean",
+                            "integer"
+                          ]
+                        },
+                        "args": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "extractor",
+                        "type",
+                        "args"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "rules": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "when": {
+                          "$ref": "#/$defs/predicate"
+                        },
+                        "result": {
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "when",
+                        "result"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "onNoMatch": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "return": {
+                            "const": "no-match"
+                          }
+                        },
+                        "required": [
+                          "return"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "result": {
+                            "type": "object"
+                          }
+                        },
+                        "required": [
+                          "result"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "phase",
+                  "outputType",
+                  "facts",
+                  "rules",
+                  "onNoMatch"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "name",
+              "version",
+              "spec"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "fig.waf-policy/v1alpha1"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "spec": {
+                "type": "object",
+                "properties": {
+                  "engine": {
+                    "const": "coraza"
+                  },
+                  "mode": {
+                    "enum": [
+                      "enforce",
+                      "detect"
+                    ]
+                  },
+                  "inspection": {
+                    "const": "request-headers"
+                  },
+                  "rules": {
+                    "type": "object",
+                    "properties": {
+                      "format": {
+                        "const": "seclang"
+                      },
+                      "inline": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "format",
+                      "inline"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "engine",
+                  "mode",
+                  "inspection",
+                  "rules"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "name",
+              "version",
+              "spec"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "fig.pipeline/v1alpha1"
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              },
+              "spec": {
+                "type": "object",
+                "properties": {
+                  "placement": {
+                    "const": "downstream-http"
+                  },
+                  "steps": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "module": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "configRef": {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "name": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "version": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "type",
+                            "name",
+                            "version"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "input": {
+                          "type": "object",
+                          "properties": {
+                            "from": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "type": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "from",
+                            "type"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "onNoMatch": {
+                          "type": "object",
+                          "properties": {
+                            "localReply": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "integer",
+                                  "minimum": 400,
+                                  "maximum": 599
+                                }
+                              },
+                              "required": [
+                                "status"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "localReply"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "onBlock": {
+                          "type": "object",
+                          "properties": {
+                            "localReply": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "integer",
+                                  "minimum": 400,
+                                  "maximum": 599
+                                }
+                              },
+                              "required": [
+                                "status"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "localReply"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "onError": {
+                          "type": "object",
+                          "properties": {
+                            "localReply": {
+                              "type": "object",
+                              "properties": {
+                                "status": {
+                                  "type": "integer",
+                                  "minimum": 400,
+                                  "maximum": 599
+                                }
+                              },
+                              "required": [
+                                "status"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "localReply"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "module",
+                        "onError"
+                      ],
+                      "additionalProperties": false,
+                      "oneOf": [
+                        {
+                          "required": [
+                            "configRef"
+                          ],
+                          "not": {
+                            "required": [
+                              "input"
+                            ]
+                          }
+                        },
+                        {
+                          "required": [
+                            "input"
+                          ],
+                          "not": {
+                            "required": [
+                              "configRef"
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "placement",
+                  "steps"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "name",
+              "version",
+              "spec"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "apiVersion",
+    "scope",
+    "generation",
+    "resources"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "predicate": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "enum": [
+            "equals",
+            "in",
+            "exists",
+            "isMissing",
+            "all",
+            "any",
+            "not"
+          ]
+        },
+        "fact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "values": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/predicate"
+          }
+        }
+      },
+      "required": [
+        "op"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

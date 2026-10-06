@@ -1,0 +1,132 @@
+{
+  "apiVersion": "fig/v1alpha1",
+  "scope": "demo",
+  "generation": "1",
+  "resources": [
+    {
+      "type": "fig.match/v1alpha1",
+      "name": "select-waf",
+      "version": "1",
+      "spec": {
+        "phase": "request-headers",
+        "outputType": "fig.waf-policy-ref/v1alpha1",
+        "facts": [
+          {
+            "name": "path",
+            "extractor": "input-field/v1",
+            "type": "string",
+            "args": {
+              "name": "path"
+            }
+          }
+        ],
+        "rules": [
+          {
+            "id": "observe",
+            "when": {
+              "op": "equals",
+              "fact": "path",
+              "values": [
+                {
+                  "kind": "string",
+                  "text": "/observe"
+                }
+              ]
+            },
+            "result": {
+              "policyRef": {
+                "type": "fig.waf-policy/v1alpha1",
+                "name": "observe",
+                "version": "1"
+              }
+            }
+          }
+        ],
+        "onNoMatch": {
+          "result": {
+            "policyRef": {
+              "type": "fig.waf-policy/v1alpha1",
+              "name": "baseline",
+              "version": "1"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "fig.waf-policy/v1alpha1",
+      "name": "baseline",
+      "version": "1",
+      "spec": {
+        "engine": "coraza",
+        "mode": "enforce",
+        "inspection": "request-headers",
+        "rules": {
+          "format": "seclang",
+          "inline": "SecRule REQUEST_HEADERS:X-Fig-Attack \"@streq attack\" \"id:1001,phase:1,deny,status:403,nolog\""
+        }
+      }
+    },
+    {
+      "type": "fig.waf-policy/v1alpha1",
+      "name": "observe",
+      "version": "1",
+      "spec": {
+        "engine": "coraza",
+        "mode": "detect",
+        "inspection": "request-headers",
+        "rules": {
+          "format": "seclang",
+          "inline": "SecRule REQUEST_HEADERS:X-Fig-Attack \"@streq attack\" \"id:1001,phase:1,deny,status:403,nolog\""
+        }
+      }
+    },
+    {
+      "type": "fig.pipeline/v1alpha1",
+      "name": "edge",
+      "version": "1",
+      "spec": {
+        "placement": "downstream-http",
+        "steps": [
+          {
+            "id": "select-policy",
+            "module": "fig.match/v1alpha1",
+            "configRef": {
+              "type": "fig.match/v1alpha1",
+              "name": "select-waf",
+              "version": "1"
+            },
+            "onNoMatch": {
+              "localReply": {
+                "status": 503
+              }
+            },
+            "onError": {
+              "localReply": {
+                "status": 400
+              }
+            }
+          },
+          {
+            "id": "inspect",
+            "module": "fig.waf/v1alpha1",
+            "input": {
+              "from": "select-policy",
+              "type": "fig.waf-policy-ref/v1alpha1"
+            },
+            "onBlock": {
+              "localReply": {
+                "status": 403
+              }
+            },
+            "onError": {
+              "localReply": {
+                "status": 503
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

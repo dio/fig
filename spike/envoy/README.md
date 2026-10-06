@@ -7,13 +7,14 @@ and pins the same Envoy/SDK pair. It does not need a Kubernetes cluster.
 ```text
 HTTP client
   -> Envoy downstream filter: early Match (path -> policy reference)
+  -> Envoy downstream filter: Coraza phase-1 WAF (selected policy -> next action)
   -> Envoy downstream filter: late Match (/chat JSON model -> plan reference)
   -> Envoy router
   -> echo backend
 ```
 
-These are policy/plan *selections*. There is no Coraza engine, policy enforcement,
-provider adaptation or routing-plan executor in this fixture. Both selections are
+The WAF stage now runs a real Coraza phase-1 rule. Plan references remain selections;
+there is no provider adaptation or routing-plan executor in this fixture. Both selections are
 recorded in host-local dynamic metadata. The adapter also overwrites demonstration
 headers `x-fig-policy` / `x-fig-plan` so the backend can report the selected values.
 Those headers are diagnostics, not an authorization or production handoff contract.
@@ -201,3 +202,41 @@ Passed:
 This is a functional spike, not a race-detector, load, HTTP/2 or memory-leak qualification.
 It does not exercise Envoy Gateway/k3d, remote mTLS, SDS, configuration rollover or actual
 WAF/LLM execution. Kona remains the reference for those deployment/transport concerns.
+
+## WAF selection and next-action spike
+
+`fig-waf` consumes the early Match policy reference and generation from Envoy-local
+metadata. Diagnostic request headers cannot select a less restrictive policy. Engines
+are prepared at config creation, and each request gets a separate transaction. This
+phase-1-only transaction is finalized and closed within the headers callback.
+
+One deliberately fixed Coraza v3.7.0 rule matches `X-Fig-Attack: attack` (rule 1001).
+The policies select `SecRuleEngine On` or `DetectionOnly`:
+
+| Path/input | Policy | Matched | Action | HTTP |
+|---|---|---|---|---|
+| `/chat`, valid model, no attack header | chat-policy | false | continue | 200 |
+| `/chat`, attack header | chat-policy | true | block | 403 |
+| `/observe`, attack header | observe-policy | true | continue | 200 |
+| `/headers`, attack header | baseline | true | block | 403 |
+| `/unconfigured` | unknown-policy | false | error | 503 |
+
+`/unconfigured` is an intentional negative fixture: Match selects a reference absent
+from the WAF catalog. The draft bundle compiler should reject this before activation.
+Missing selection or a generation mismatch also fails closed at runtime.
+
+Outcomes are stored in `fig.waf` dynamic metadata and shown in response headers
+`x-fig-waf-policy`, `x-fig-waf-action`, `x-fig-waf-matched`, and `x-fig-waf-rule`.
+A continuing WAF result does not imply that later Match or access checks will allow
+the request. Upstream responses cannot overwrite these diagnostic outcome headers.
+
+The expanded `make native-test` passed on macOS arm64 / Envoy `0a804c57` with all
+previous Match cases plus these five WAF cases. Exactly 45 requests reached the
+backend; WAF blocks and the missing-policy error did not. Spoofed policy/action request
+headers did not bypass enforcement. The Docker lane was not rerun for this addition.
+
+Scope: request-header inspection only, a fixed smoke rule, no CRS, body/response
+inspection, client-IP rules, live policy replacement, audit-log integration or performance
+qualification. This establishes selection -> inspection -> next action, not general
+WAF coverage. [Configuration draft](../../docs/CONFIG.md) describes the proposed next
+step; the module does not consume that bundle schema yet.

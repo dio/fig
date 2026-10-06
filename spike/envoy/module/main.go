@@ -36,7 +36,9 @@ type factory struct {
 }
 
 func init() {
-	sdk.RegisterHttpFilterConfigFactories(map[string]shared.HttpFilterConfigFactory{"fig-match": &configFactory{}})
+	sdk.RegisterHttpFilterConfigFactories(map[string]shared.HttpFilterConfigFactory{
+		"fig-match": &configFactory{}, "fig-waf": &wafConfigFactory{},
+	})
 }
 func (*configFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
 	if len(data) > 1<<20 {
@@ -207,6 +209,8 @@ func (f *filter) finish(phase match.Phase) bool {
 		f.handle.SetMetadata("fig.match", f.factory.config.Spec.Name, map[string]any{
 			"ref": result.Value.Ref, "rule": result.RuleID, "generation": result.Generation,
 		})
+		f.handle.SetMetadata("fig.match", f.factory.config.Spec.Name+".ref", result.Value.Ref)
+		f.handle.SetMetadata("fig.match", f.factory.config.Spec.Name+".generation", result.Generation)
 		f.handle.RequestHeaders().Set(f.factory.config.OutputHeader, result.Value.Ref)
 		return true
 	case match.NoMatch:
