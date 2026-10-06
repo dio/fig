@@ -607,6 +607,9 @@ distinguishes the referenced LiteLLM concepts from Fig's proposed behavior.
 
 ### WAF and shared lifecycle requirements
 
+The [BoE Coraza WAF case study](case-studies/BOE-CORAZA-WAF.md) maps these
+contracts to an existing adapter and estimates a first implementation slice.
+
 WAF policy content and runtime enforcement mode are distinct resources. A mode
 selection must reference the exact prepared policy revision it applies to. Detection-only
 still performs inspection. Cold/unavailable required protection must not be bypassed.

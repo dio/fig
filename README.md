@@ -7,6 +7,7 @@ API access and WAF inspection.
 
 - [Design](docs/DESIGN.md): responsibilities, semantics, invariants and examples.
 - [Rationale](docs/RATIONALE.md): source findings, tradeoffs and open decisions.
+- [BoE Coraza WAF case study](docs/case-studies/BOE-CORAZA-WAF.md): reuse boundaries, migration scope and effort estimate.
 
 Apps contribute composable modules with explicit downstream, upstream, or host-selection
 placement and typed handoff requirements.

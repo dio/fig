@@ -41,6 +41,11 @@ from the native overlay. This is useful contract evidence, not proof that the cu
 native module exercises that dynamic path. APIx's final dispatch checks are a stronger
 reference for revocable access than a generic snapshot pointer alone.
 
+The [BoE Coraza WAF case study](case-studies/BOE-CORAZA-WAF.md) examines the
+pinned adapter in more detail. It recommends retaining Coraza and its phase behavior
+while adapting selection, activation and host ownership; its estimates separate the
+WAF work from Fig foundations that do not yet exist.
+
 ## Decision 1: serialize extraction and selection
 
 **Choice:** declare both extraction and selection in versioned data; compile before
