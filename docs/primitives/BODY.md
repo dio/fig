@@ -1,10 +1,10 @@
 # Body input and parsing contract
 
-Status: proposed contract. The current native spike collects bounded request bytes
-and `match/extract.go` parses JSON separately for each `json-pointer/v1` fact.
-It does not yet implement the shared parsed view described here. WAF and Marker
-bundles currently accept header facts only. This document formalizes the next slice;
-it introduces no runnable schema or compatibility promise.
+Status: partially implemented. `body` provides immutable bounded JSON documents;
+`json-pointer/v1` is now a compatibility wrapper and `body-json-pointer/v1` reads a
+shared `match.Input.Document`. The native fixture parses once for model and stream
+facts. WAF and Marker remain header-only. The resource/reference schema below and
+cross-app sharing are still proposals, not accepted bundle configuration.
 
 ## Ownership
 
@@ -165,3 +165,26 @@ should establish no panic and bounded termination within admitted input limits.
 Avoid simultaneously implementing a general streaming engine, global app coordinator
 and format registry. This slice establishes the body contract and demonstrates it
 with one complete JSON consumer before expanding host/runtime scope.
+
+## Implemented first slice
+
+The standalone native Match fixture accepts `bodyParser` with `maxBytes`, `maxDepth`
+and `maxNodes`. It requires body phase, equal parser/collection byte limits, and
+rejects mixing legacy body extractors with a shared parser. The fixture uses 4096
+bytes, depth 32 and 256 nodes. It supplies one document per evaluation; the implemented
+`body-json-pointer/v1` accepts only `{"pointer":"/model"}` (or another pointer),
+not the future `bodyRef` argument. No bundle resource loader has been added.
+
+Depth/node/byte failures map to 413; malformed JSON, invalid Unicode and wrong fact
+types map to 400. This changes the native fixture's previous depth-error response
+from 400 to 413. Legacy extractor decoding and fact error codes remain compatible,
+including its permissive Unicode replacement behavior. New consumers use strict Parse.
+
+Native evidence: both model and stream facts consume the same document, one parse
+is reported in the diagnostic `x-fig-body-parses` header, original bytes reach the
+backend unchanged, header-only paths report no parse, errors receive no backend
+receipt, and concurrent requests remain separate. The header is stripped from client
+input and is diagnostic only. Unit tests cover cancellation and captured generation;
+no live generation-update mechanism or aggregate buffering admission is implemented.
+Fuzzing and race tests supplement these checks. Deliberate streaming/abort qualification,
+body WAF, bodyRef resolution and cross-filter shared contexts remain future work.

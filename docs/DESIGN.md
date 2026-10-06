@@ -727,5 +727,6 @@ Marker is the second implemented app demonstrating a distinct typed Match result
 
 The [Body contract](primitives/BODY.md) separates host collection, pure parsing,
 typed fact extraction and app decisions. Complete JSON is the first proposed profile.
-It also defines sharing, forwarding, limits and cancellation; these shared-view
-capabilities are not yet implemented by the existing per-extractor JSON spike.
+The first implementation provides a bounded immutable JSON view shared by facts
+inside one native filter. Cross-app sharing and bundle-level body references remain
+proposed; the contract also defines forwarding, limits and cancellation.

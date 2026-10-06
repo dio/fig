@@ -39,7 +39,7 @@ func TestNativeMatch(t *testing.T) {
 			http.Error(w, err.Error(), 413)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"policy": r.Header.Get("x-fig-policy"), "plan": r.Header.Get("x-fig-plan"), "body": string(body), "marker": r.Header.Get("x-fig-marker")})
+		_ = json.NewEncoder(w).Encode(map[string]string{"policy": r.Header.Get("x-fig-policy"), "plan": r.Header.Get("x-fig-plan"), "body": string(body), "marker": r.Header.Get("x-fig-marker"), "parses": r.Header.Get("x-fig-body-parses")})
 	}))
 	t.Cleanup(backend.Close)
 	_, port, _ := net.SplitHostPort(strings.TrimPrefix(backend.URL, "http://"))
@@ -71,6 +71,7 @@ func TestNativeMatch(t *testing.T) {
 		req.Header.Set("x-fig-policy", "spoofed")
 		req.Header.Set("x-fig-plan", "spoofed")
 		req.Header.Set("x-fig-marker", "spoofed")
+		req.Header.Set("x-fig-body-parses", "spoofed")
 		if encoding != "" {
 			req.Header.Set("content-encoding", encoding)
 		}
@@ -85,7 +86,7 @@ func TestNativeMatch(t *testing.T) {
 	}
 	t.Run("header-default", func(t *testing.T) {
 		status, result, err := send("/headers", "", "application/json", "")
-		if err != nil || status != 200 || result["policy"] != "baseline" || result["plan"] != "" || result["marker"] != "" {
+		if err != nil || status != 200 || result["policy"] != "baseline" || result["plan"] != "" || result["marker"] != "" || result["parses"] != "" {
 			t.Fatalf("%d %v %v", status, result, err)
 		}
 	})
@@ -94,13 +95,17 @@ func TestNativeMatch(t *testing.T) {
 		status                            int
 	}{
 		{name: "selected", body: `{"model":"support-chat"}`, status: 200},
+		{name: "two-facts", body: `{"model":"support-chat","stream":true}`, status: 200},
+		{name: "invalid-second-fact", body: `{"model":"support-chat","stream":"yes"}`, status: 400},
+		{name: "unicode", body: `{"model":"support-chat","extra":"\ud800"}`, status: 400},
+		{name: "nodes", body: `{"model":"support-chat","extra":[` + strings.Repeat("0,", 255) + `0]}`, status: 413},
 		{name: "unknown", body: `{"model":"other"}`, status: 404},
 		{name: "missing", body: `{}`, status: 404},
 		{name: "malformed", body: `{`, status: 400},
 		{name: "null", body: `{"model":null}`, status: 400},
 		{name: "wrong-type", body: `{"model":1}`, status: 400},
 		{name: "duplicate", body: `{"model":"support-chat","model":"other"}`, status: 400},
-		{name: "depth", body: `{"model":"support-chat","nested":` + strings.Repeat("[", 33) + "0" + strings.Repeat("]", 33) + "}", status: 400},
+		{name: "depth", body: `{"model":"support-chat","nested":` + strings.Repeat("[", 33) + "0" + strings.Repeat("]", 33) + "}", status: 413},
 		{name: "empty", body: "", status: 400},
 		{name: "limit", body: strings.Repeat("x", 4097), status: 413},
 		{name: "content-type", body: "{}", contentType: "text/plain", status: 415},
@@ -120,7 +125,7 @@ func TestNativeMatch(t *testing.T) {
 			expected := before
 			if status == 200 {
 				expected++
-				if result["plan"] != "support" || result["policy"] != "chat-policy" || result["body"] != tc.body || result["marker"] != "chat-request" {
+				if result["plan"] != "support" || result["policy"] != "chat-policy" || result["body"] != tc.body || result["marker"] != "chat-request" || result["parses"] != "1" {
 					t.Fatalf("incorrect handoff: %v", result)
 				}
 			}
@@ -207,7 +212,7 @@ func TestNativeMatch(t *testing.T) {
 				defer wg.Done()
 				body := `{"model":"support-chat","id":` + strconv.Itoa(i) + `}`
 				status, result, err := send("/chat", body, "application/json", "")
-				if err != nil || status != 200 || result["body"] != body || result["plan"] != "support" || result["marker"] != "chat-request" {
+				if err != nil || status != 200 || result["body"] != body || result["plan"] != "support" || result["marker"] != "chat-request" || result["parses"] != "1" {
 					t.Errorf("%d %v %v", status, result, err)
 				}
 			}()

@@ -75,3 +75,11 @@ it. No performance or production-readiness claim is made.
 Verification for this initial change: `go build ./...`, `go vet ./...`, and execution
 of the example command. No automated test suite was added or run. The acceptance
 matrix in [the design](../docs/primitives/MATCH.md) remains work for qualification.
+
+## Shared body input
+
+`body-json-pointer/v1` accepts `{"pointer":"/model"}` and reads `Input.Document`.
+The host calls `body.Parse` once with byte/depth/node limits and supplies the same
+immutable document to all facts. Missing documents fail extraction. Raw `Input.Body`
+is ignored by this extractor. `json-pointer/v1` retains legacy decoding semantics
+through a compatibility wrapper. See [Body](../docs/primitives/BODY.md).

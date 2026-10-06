@@ -279,6 +279,6 @@ cycles and lifetime mistakes; the pure predicate evaluator is the smaller part.
 ## Body parsing boundary
 
 See [Body input and parsing](BODY.md) for the proposed shared parsed view and
-versioned extractor migration. Current `json-pointer/v1` parses independently per
-fact. A future view-based extractor reads an immutable document; Match continues
+versioned extractor migration. `json-pointer/v1` remains a per-fact compatibility wrapper. The new
+`body-json-pointer/v1` reads the immutable `Input.Document`; Match continues
 to own typed facts and selection, while the host owns collection and cancellation.

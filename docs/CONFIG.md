@@ -198,5 +198,6 @@ see [hostname placement and activation](ACTIVATION.md) for the proposed Lime ada
 That placement design is not implemented by the current fixed-chain fixture.
 
 Body-aware resource composition is specified separately in the proposed
-[Body contract](primitives/BODY.md). Its illustrative resource and extractor are not
-yet accepted by the bundle app compilers or structural schema.
+[Body contract](primitives/BODY.md). Its illustrative Body resource and reference arguments are not
+yet accepted by the bundle app compilers or structural schema. The standalone native
+fixture implements a single parsed document with `body-json-pointer/v1` facts.

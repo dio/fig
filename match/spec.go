@@ -1,7 +1,11 @@
 // Package match is an experimental, host-independent extraction and selection core.
 package match
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/dio/fig/body"
+)
 
 type Phase string
 
@@ -104,9 +108,10 @@ type Fact struct {
 // Fields are adapter-provided facts, not automatically trusted identity.
 // Do not mutate an Input concurrently with Advance. No input buffers are retained.
 type Input struct {
-	Phase  Phase
-	Fields map[string]Value
-	Body   []byte
+	Phase    Phase
+	Fields   map[string]Value
+	Body     []byte
+	Document *body.Document
 }
 
 type Status string

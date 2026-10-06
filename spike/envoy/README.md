@@ -163,3 +163,16 @@ The fixture also consumes `examples/config/marker.json`: `/chat` selects
 Tests assert upstream marker values, spoof removal, independent typed output and
 that a WAF block prevents Marker execution. Hostname-specific activation remains
 [design work](../../docs/ACTIVATION.md); all hosts currently share this fixed chain.
+
+## Shared JSON body parser
+
+The standalone body-Match stage now parses once through `body.Parse`, with a 4096-byte,
+32-depth, 256-node profile. Both `/model` (string) and `/stream` (boolean, if present)
+are validated from that document. Invalid stream types reject even if model matches.
+Original request bytes are preserved. Depth/node/byte limits return 413; invalid JSON,
+Unicode or fact types return 400. The diagnostic upstream `x-fig-body-parses` reports
+one on successful body evaluation and is stripped from incoming requests.
+
+Native tests cover two-fact sharing, Unicode/node rejection, no backend receipt on
+errors and unchanged forwarded bytes. The bundle-level Body resource and cross-app
+sharing described in [the contract](../../docs/primitives/BODY.md) remain unimplemented.

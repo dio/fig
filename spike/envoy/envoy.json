@@ -107,7 +107,7 @@
                         "filter_name": "fig-match",
                         "filter_config": {
                           "@type": "type.googleapis.com/google.protobuf.StringValue",
-                          "value": "{\"generation\": \"generation-1\", \"spec\": {\"schema\": \"fig.match/v1\", \"revision\": \"1\", \"name\": \"chat-plan\", \"phase\": \"request-body-complete\", \"facts\": [{\"name\": \"model\", \"extractor\": \"json-pointer/v1\", \"type\": \"string\", \"args\": {\"pointer\": \"/model\", \"maxBytes\": 4096, \"maxDepth\": 32}}], \"rules\": [{\"id\": \"support\", \"when\": {\"op\": \"equals\", \"fact\": \"model\", \"values\": [{\"kind\": \"string\", \"text\": \"support-chat\"}]}, \"result\": {\"ref\": \"support\"}}]}, \"outputHeader\": \"x-fig-plan\", \"path\": \"/chat\", \"maxBodyBytes\": 4096}"
+                          "value": "{\"generation\": \"generation-1\", \"spec\": {\"schema\": \"fig.match/v1\", \"revision\": \"1\", \"name\": \"chat-plan\", \"phase\": \"request-body-complete\", \"facts\": [{\"name\": \"model\", \"extractor\": \"body-json-pointer/v1\", \"type\": \"string\", \"args\": {\"pointer\": \"/model\"}}, {\"name\": \"stream\", \"extractor\": \"body-json-pointer/v1\", \"type\": \"boolean\", \"args\": {\"pointer\": \"/stream\"}}], \"rules\": [{\"id\": \"support\", \"when\": {\"op\": \"equals\", \"fact\": \"model\", \"values\": [{\"kind\": \"string\", \"text\": \"support-chat\"}]}, \"result\": {\"ref\": \"support\"}}]}, \"outputHeader\": \"x-fig-plan\", \"path\": \"/chat\", \"maxBodyBytes\": 4096, \"bodyParser\": {\"maxBytes\": 4096, \"maxDepth\": 32, \"maxNodes\": 256}}"
                         }
                       }
                     },

@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"strconv"
 	"strings"
 
+	"github.com/dio/fig/body"
 	"github.com/dio/fig/match"
 	sdk "github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go"
 	_ "github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/abi"
@@ -20,11 +22,12 @@ type selection struct {
 	Ref string `json:"ref"`
 }
 type config struct {
-	Generation   string     `json:"generation"`
-	Spec         match.Spec `json:"spec"`
-	OutputHeader string     `json:"outputHeader"`
-	Path         string     `json:"path,omitempty"`
-	MaxBodyBytes int        `json:"maxBodyBytes,omitempty"`
+	Generation   string       `json:"generation"`
+	Spec         match.Spec   `json:"spec"`
+	OutputHeader string       `json:"outputHeader"`
+	Path         string       `json:"path,omitempty"`
+	BodyParser   *body.Limits `json:"bodyParser,omitempty"`
+	MaxBodyBytes int          `json:"maxBodyBytes,omitempty"`
 }
 type configFactory struct {
 	shared.EmptyHttpFilterConfigFactory
@@ -62,7 +65,24 @@ func (*configFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shar
 	if cfg.Spec.Phase == match.BodyComplete && (cfg.MaxBodyBytes < 1 || cfg.MaxBodyBytes > 1<<20) {
 		return nil, fmt.Errorf("body limit must be in 1..1048576")
 	}
+	if cfg.BodyParser != nil {
+		if err := cfg.BodyParser.Validate(); err != nil {
+			return nil, err
+		}
+		if cfg.Spec.Phase != match.BodyComplete || cfg.BodyParser.MaxBytes != cfg.MaxBodyBytes {
+			return nil, fmt.Errorf("parser requires body phase and matching collection limit")
+		}
+		if cfg.BodyParser.MaxNodes > 1<<20 {
+			return nil, fmt.Errorf("node limit exceeds host budget")
+		}
+	}
 	for _, fact := range cfg.Spec.Facts {
+		if fact.Extractor == "body-json-pointer/v1" && cfg.BodyParser == nil {
+			return nil, fmt.Errorf("body view extractor requires a parser")
+		}
+		if fact.Extractor == "json-pointer/v1" && cfg.BodyParser != nil {
+			return nil, fmt.Errorf("shared parser cannot mix legacy body extractors")
+		}
 		if fact.Extractor == "json-pointer/v1" {
 			var args struct {
 				MaxBytes int `json:"maxBytes"`
@@ -102,6 +122,7 @@ type filter struct {
 	evaluation   *match.Evaluation[selection]
 	fields       map[string]match.Value
 	body         []byte
+	parseCount   int
 	active, done bool
 }
 
@@ -109,6 +130,7 @@ func (f *filter) OnRequestHeaders(headers shared.HeaderMap, end bool) shared.Hea
 	cfg := f.factory.config
 	// Demonstration handoff only: remove caller values even on skipped paths.
 	headers.Remove(cfg.OutputHeader)
+	headers.Remove("x-fig-body-parses")
 	path := strings.SplitN(headers.GetOne(":path").ToString(), "?", 2)[0]
 	if cfg.Path != "" && cfg.Path != path {
 		return shared.HeadersStatusContinue
@@ -200,7 +222,23 @@ func (f *filter) OnRequestTrailers(_ shared.HeaderMap) shared.TrailersStatus {
 	return shared.TrailersStatusStop
 }
 func (f *filter) finish(phase match.Phase) bool {
-	result := f.evaluation.Advance(match.Input{Phase: phase, Fields: f.fields, Body: f.body})
+	var document *body.Document
+	if phase == match.BodyComplete && f.factory.config.BodyParser != nil {
+		var err error
+		f.parseCount++
+		document, err = body.Parse(f.body, *f.factory.config.BodyParser)
+		if err != nil {
+			status := uint32(400)
+			if errors.Is(err, body.ErrBytes) || errors.Is(err, body.ErrDepth) || errors.Is(err, body.ErrNodes) {
+				status = 413
+			}
+			f.reject(status, err.Error())
+			return false
+		}
+		f.handle.SetMetadata("fig.body", "parse_count", f.parseCount)
+		f.handle.RequestHeaders().Set("x-fig-body-parses", strconv.Itoa(f.parseCount))
+	}
+	result := f.evaluation.Advance(match.Input{Phase: phase, Fields: f.fields, Body: f.body, Document: document})
 	f.body = nil
 	switch result.Status {
 	case match.Selected:

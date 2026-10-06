@@ -358,8 +358,8 @@ than being partially lowered. See [the configuration contract](CONFIG.md).
 
 ## Why separate body parsing from Match
 
-The current JSON-pointer extractor combines document parsing and fact extraction.
-That repeats parsing for multiple facts and hides buffering requirements inside a
+The original JSON-pointer extractor combined document parsing and fact extraction.
+That repeated parsing for multiple facts and hides buffering requirements inside a
 selector. The [Body contract](primitives/BODY.md) makes the input representation and
 resource budgets explicit, permits reuse within an owned request context, and keeps
 HTTP buffering outside pure primitives. WAF retains its engine-specific parser;

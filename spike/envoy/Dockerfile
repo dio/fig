@@ -1,6 +1,7 @@
 FROM golang:1.27.1-bookworm AS build
 WORKDIR /src
 COPY go.mod ./
+COPY body /src/body
 COPY match ./match
 COPY matchconfig ./matchconfig
 COPY bundle ./bundle
