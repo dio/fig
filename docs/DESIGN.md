@@ -195,6 +195,9 @@ set of prepared resources. Delivery response identifiers are a separate concept.
 
 ## 4. Serializable fact extraction
 
+The [Match primitive](primitives/MATCH.md) specifies the first implementation slice
+for extraction and selection, including phase, terminal-result and ownership semantics.
+
 Each fact declaration specifies:
 
 1. Source and earliest availability phase.

@@ -295,6 +295,20 @@ when transport or other cluster-wide settings differ. Dynamic Forward Proxy rema
 an alternative when DNS names adequately express selection. The host realization must
 follow the contracts, rather than changing the application model to fit one optimization.
 
+## Decision 13: a host-independent Match primitive
+
+The [Match slice](primitives/MATCH.md) separates serializable extraction and ordered
+selection from host buffering, protocol errors and view publication. Start with
+explicit phase boundaries and complete all declared facts before evaluating a stage.
+This gives pending and invalid input unambiguous behavior; early and late decisions
+use separate instances sharing a captured generation. Lazy extraction could reduce
+work but adds predicate-dependent waiting and error semantics, so it is deferred.
+
+Retain consumer-owned output types rather than generalizing Plum provider fields into
+a universal decision. Match selects references; WAF, authorization, routing execution
+and other consumers own their effects. This keeps the primitive useful for local
+decisions as well as upstream routing.
+
 ## Decisions still required before implementation
 
 1. **Examples and phases:** exact fact sets, selection results and event traces for

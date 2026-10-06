@@ -6,6 +6,7 @@ routing, Jev decisions, caching, guardrails (including bring-your-own), LLM rout
 API access and WAF inspection.
 
 - [Design](docs/DESIGN.md): responsibilities, semantics, invariants and examples.
+- [Match primitive](docs/primitives/MATCH.md): specification, preparation, evaluation and host boundaries.
 - [Rationale](docs/RATIONALE.md): source findings, tradeoffs and open decisions.
 - [BoE Coraza WAF case study](docs/case-studies/BOE-CORAZA-WAF.md): reuse boundaries, migration scope and effort estimate.
 
