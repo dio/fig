@@ -90,8 +90,8 @@ No provider routing, actual LLM execution, full WAF/CRS or live bundle updates a
 - `apps/waf/inspect`: policy preparation and Coraza inspection; no bundle/Match/Envoy imports.
 - `apps/waf/envoy/filter.go`: Envoy callbacks; adapts owned inputs and applies app outcomes.
 - `hosts/envoy/internal/filter/match.go`: standalone body Match adapter.
-- `hosts/envoy/integration/bootstrap`: embeds a supplied bundle into the bootstrap template, without compiling it.
-- `hosts/envoy/integration/envoy.json`: template with separate WAF and Marker bundle placeholders.
+- `hosts/envoy/bootstrap`: embeds a supplied bundle into the bootstrap template, without compiling it.
+- `hosts/envoy/bootstrap/envoy.json`: template with separate WAF and Marker bundle placeholders.
 - `hosts/envoy/integration/native_test.go`: real traffic and native invalid-configuration assertions.
 
 The native harness renders the template with local module paths, dynamically chosen
@@ -169,3 +169,10 @@ injection cases deliberately alter configuration after that admission check.
 The [request-data contract](REQUEST_DATA.md) records the exact schema and remaining
 qualification gates. Only compact header-time scalar results cross filter instances;
 the parsed JSON body is still owned by its original filter.
+
+## Interactive operation
+
+Use [the local demo walkthrough](demo.md) for a foreground supervisor, action discovery,
+configuration previews and persistent mode/marker changes. `make demo-build` creates
+`bin/fig` and its matching library. `make native-test` also builds the CLI and runs
+`TestNativeDemo`; existing native traffic tests share the same bootstrap renderer.

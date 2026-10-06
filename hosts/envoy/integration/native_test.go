@@ -2,7 +2,6 @@ package envoy_test
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,12 +19,11 @@ import (
 	"time"
 
 	"github.com/dio/fig/bundle"
-	configrender "github.com/dio/fig/hosts/envoy/integration/bootstrap"
+	configrender "github.com/dio/fig/hosts/envoy/bootstrap"
 	"github.com/dio/kona/envoytest"
 )
 
-//go:embed envoy.json
-var bootstrapTemplate string
+var bootstrapTemplate = configrender.Template
 
 func TestNativeMatch(t *testing.T) {
 	if os.Getenv("ENVOY_BIN") == "" {

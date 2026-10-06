@@ -1,9 +1,10 @@
-// Package bootstrap embeds caller-selected app bundles into an Envoy fixture.
+// Package bootstrap embeds caller-selected app bundles into the fixed local Envoy chain.
 // It has no knowledge of WAF, Marker, or their resource/output schemas.
 package bootstrap
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -12,12 +13,15 @@ import (
 	"github.com/dio/fig/handoff"
 )
 
+//go:embed envoy.json
+var Template string
+
 type Binding struct {
-	Export *handoff.Slot
-	Input  *handoff.Input
-	Name   string
-	Entry  bundle.Ref
-	Data   json.RawMessage
+	Export *handoff.Slot   `json:"export,omitempty"`
+	Input  *handoff.Input  `json:"input,omitempty"`
+	Name   string          `json:"name"`
+	Entry  bundle.Ref      `json:"entry"`
+	Data   json.RawMessage `json:"bundle"`
 }
 
 func Render(template []byte, bindings ...Binding) ([]byte, error) {

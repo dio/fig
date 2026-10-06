@@ -15,3 +15,10 @@ native-test:
 	cd apps/marker/envoy && go test ./...
 	cd apps/waf/envoy && go test ./...
 	$(MAKE) -C hosts/envoy native-test
+
+.PHONY: demo-build
+demo-build:
+	$(MAKE) -C hosts/envoy native-build
+	mkdir -p bin
+	cp hosts/envoy/.bin/fig bin/fig
+	cp hosts/envoy/.bin/libfig_match.so bin/libfig_match.so

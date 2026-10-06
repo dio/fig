@@ -15,7 +15,7 @@ import (
 
 	"github.com/dio/fig/bundle"
 	"github.com/dio/fig/handoff"
-	configrender "github.com/dio/fig/hosts/envoy/integration/bootstrap"
+	configrender "github.com/dio/fig/hosts/envoy/bootstrap"
 	"github.com/dio/fig/match"
 	"github.com/dio/kona/envoytest"
 )

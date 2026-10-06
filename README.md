@@ -9,6 +9,7 @@ API access and WAF inspection.
 - [Configuration draft](docs/CONFIG.md): consumed bundles, primitive/app boundaries, and next actions.
 - [Match primitive](docs/primitives/MATCH.md): specification, preparation, evaluation and host boundaries.
 - [Request data](docs/REQUEST_DATA.md): typed request handoffs and [source survey](docs/surveys/REQUEST_DATA.md).
+- [Local app actions](docs/LOCAL_ACTIONS.md): discoverable actions and interactive native demo.
 - [Rationale](docs/RATIONALE.md): source findings, tradeoffs and open decisions.
 - [BoE Coraza WAF case study](docs/case-studies/BOE-CORAZA-WAF.md): reuse boundaries, migration scope and effort estimate.
 
@@ -18,6 +19,21 @@ placement and typed handoff requirements.
 The experimental [Match primitive](match/README.md) implements preparation, typed
 fact extraction and selection. Use `make test` for all modules. The broader runtime
 remains a design proposal; APIs and schemas are not stable.
+
+## Interactive local demo
+
+Follow [the two-terminal walkthrough](docs/demo.md) to start one Envoy, discover
+`waf:SetMode` / `marker:SetValue`, preview changes, and verify their effect on traffic.
+
+```sh
+make demo-build
+./bin/fig demo init --dir /tmp/fig-demo
+./bin/fig serve --dir /tmp/fig-demo up --envoy "$HOME/.tetrate/bin/envoy"
+```
+
+Changed configurations restart Envoy; no-op actions preserve its PID. Configuration
+persists in the private demo directory. Apps own schemas and transformations; the
+supervisor owns complete-chain activation and regenerates dependent handoff bindings.
 
 ## Single-Envoy native tests — no Docker
 
@@ -51,6 +67,7 @@ Current execution focus: one local native Envoy. EG, Kubernetes and remote deliv
 remain design topics and are not required by the development loop.
 
 ```text
+action/                     app-owned configuration action contracts
 body/                       bounded immutable JSON views
 bundle/                     strict envelope decoding and exact references
 handoff/                    bounded typed request records and bindings
@@ -63,6 +80,9 @@ apps/                       independently versioned app modules
   waf/envoy/                independent Envoy adapter module
 hosts/envoy/                separate Go module: Envoy SDK and host integration
   cmd/fig-envoy/             c-shared library entry point
+  cmd/fig/                   interactive demo composition root
+  bootstrap/                 shared fixed-chain renderer
+  internal/local/            supervisor, snapshots and generic control client
   internal/filter/           standalone Match demo; no app imports
   handoff/                  independent SDK carrier module; no app dependencies
   integration/              native traffic tests, bootstrap and test backend
