@@ -1,4 +1,4 @@
-package filter
+package envoy
 
 import (
 	"encoding/json"

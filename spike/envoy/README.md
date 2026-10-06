@@ -18,7 +18,7 @@ these boundaries and the deliberately limited supported pipeline.
 ## Native development loop (no Docker)
 
 Requirements: Go 1.27.1, a cgo compiler (Xcode Command Line Tools on macOS), and a
-matching native Envoy. This lane pins the `0a804c57` / 1.40.0-dev SDK using `hosts/envoy/native.mod`.
+matching native Envoy. This lane pins the `0a804c57` / 1.40.0-dev SDK using `hosts/envoy/go.mod`.
 On macOS arm64:
 
 ```sh
@@ -88,51 +88,15 @@ No provider routing, actual LLM execution, full WAF/CRS or live bundle updates a
 - Root `matchconfig`: shared typed header-resource preparation.
 - `apps/waf`: app compiler and execution, including typed Match output and action mappings.
 - `apps/waf/inspect`: policy preparation and Coraza inspection; no bundle/Match/Envoy imports.
-- `hosts/envoy/internal/filter/wafapp.go`: Envoy callbacks; adapts owned inputs and applies app outcomes.
-- `hosts/envoy/internal/filter/match.go`: legacy independent body Match adapter and factory registration.
+- `apps/waf/envoy/filter.go`: Envoy callbacks; adapts owned inputs and applies app outcomes.
+- `hosts/envoy/internal/filter/match.go`: standalone body Match adapter.
 - `hosts/envoy/integration/bootstrap`: embeds a supplied bundle into the bootstrap template, without compiling it.
 - `hosts/envoy/integration/envoy.json`: template with separate WAF and Marker bundle placeholders.
-- `hosts/envoy/integration/cmd/bootstrap`: materializes that template for manual/Docker use.
 - `hosts/envoy/integration/native_test.go`: real traffic and native invalid-configuration assertions.
 
-To materialize the bootstrap manually:
-
-```sh
-cd hosts/envoy
-mkdir -p .bin
-go run ./integration/cmd/bootstrap -out .bin/envoy.json
-```
-
-This renders the canonical bundle; the template's module path and backend still refer
-to the Docker fixture. Use the native test harness for automatic local paths and ports.
-The renderer is not a compiler: Envoy must still load and prepare the app config.
-
-## Retained Docker fixture (outside current focus)
-
-The Dockerfile builds the library for Linux and runs the renderer to embed the same
-canonical bundle into `/etc/envoy/envoy.json`. This lane retains Envoy 1.38 and the
-matching default `go.mod`, separate from the newer native SDK override.
-
-```sh
-python3 spike/envoy/verify.py
-```
-
-Or leave the two-container fixture running:
-
-```sh
-docker compose -p fig-match-manual -f spike/envoy/compose.yaml up --build -d
-docker compose -p fig-match-manual -f spike/envoy/compose.yaml port proxy 10000
-```
-
-Use the printed loopback port for requests, then clean up:
-
-```sh
-docker compose -p fig-match-manual -f spike/envoy/compose.yaml down --rmi local
-```
-
-The Python lane additionally tests intentionally fragmented bodies, streaming overflow
-and client aborts. It was qualified before the bundle/app refactor and has not been
-rerun for this change; current evidence is the direct native lane.
+The native harness renders the template with local module paths, dynamically chosen
+loopback ports, and an in-process Go backend. There is no separate backend service
+or container lifecycle to manage.
 
 ## Qualification and limits
 
@@ -181,8 +145,9 @@ sharing described in [the contract](../../docs/primitives/BODY.md) remain unimpl
 
 This directory contains launchers and the walkthrough, not reusable Go packages.
 The local development loop is owned by `hosts/envoy/Makefile`. The Makefile here
-forwards `native-build` and `native-test` for compatibility. Host callbacks live in
-`hosts/envoy/internal/filter`; `cmd/fig-envoy` is just the native library entry point.
+forwards `native-build` and `native-test` for compatibility. App callbacks live in separate `apps/marker/envoy` and `apps/waf/envoy` modules;
+`cmd/fig-envoy` composes their factories. `hosts/envoy/internal/filter` contains only
+the standalone Match demo.
 Apps live in the separate `apps` module. See the root README for all module boundaries.
-Current qualification is local native Envoy only; the retained Docker fixture was
-updated for source paths but was not run during this reorganization.
+Current qualification is local native Envoy only. The Docker/Compose fixture and
+its Python runner have been removed.

@@ -59,7 +59,7 @@
                           "name": "fig_match",
                           "module": {
                             "local": {
-                              "filename": "/usr/local/lib/libfig_match.so"
+                              "filename": "__FIG_MODULE__"
                             }
                           },
                           "do_not_close": true
@@ -79,7 +79,7 @@
                           "name": "fig_match",
                           "module": {
                             "local": {
-                              "filename": "/usr/local/lib/libfig_match.so"
+                              "filename": "__FIG_MODULE__"
                             }
                           },
                           "do_not_close": true
@@ -99,7 +99,7 @@
                           "name": "fig_match",
                           "module": {
                             "local": {
-                              "filename": "/usr/local/lib/libfig_match.so"
+                              "filename": "__FIG_MODULE__"
                             }
                           },
                           "do_not_close": true
@@ -139,7 +139,7 @@
                   "endpoint": {
                     "address": {
                       "socket_address": {
-                        "address": "echo",
+                        "address": "__FIG_BACKEND__",
                         "port_value": 8080
                       }
                     }

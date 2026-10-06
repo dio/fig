@@ -1,4 +1,4 @@
-package filter
+package envoy
 
 import (
 	"encoding/json"
@@ -10,7 +10,8 @@ import (
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 )
 
-type wafAppConfigFactory struct {
+// ConfigFactory compiles app configuration for an Envoy filter instance.
+type ConfigFactory struct {
 	shared.EmptyHttpFilterConfigFactory
 }
 type wafAppFactory struct {
@@ -18,7 +19,7 @@ type wafAppFactory struct {
 	prepared *wafapp.Prepared
 }
 
-func (*wafAppConfigFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
+func (*ConfigFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
 	bootstrap, err := decodeAppConfig(data)
 	if err != nil {
 		return nil, err

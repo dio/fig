@@ -12,7 +12,6 @@ import (
 
 	"github.com/dio/fig/body"
 	"github.com/dio/fig/match"
-	sdk "github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go"
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 )
 
@@ -37,12 +36,8 @@ type factory struct {
 	prepared *match.Prepared[selection]
 }
 
-// Register installs the factories supported by this host adapter.
-func Register() {
-	sdk.RegisterHttpFilterConfigFactories(map[string]shared.HttpFilterConfigFactory{
-		"fig-match": &configFactory{}, "fig-waf-app": &wafAppConfigFactory{}, "fig-marker-app": &markerAppConfigFactory{},
-	})
-}
+// NewConfigFactory returns the standalone Match demonstration factory.
+func NewConfigFactory() shared.HttpFilterConfigFactory { return &configFactory{} }
 func (*configFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
 	if len(data) > 1<<20 {
 		return nil, fmt.Errorf("configuration exceeds 1 MiB")

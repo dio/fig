@@ -1,4 +1,4 @@
-package filter
+package envoy
 
 import (
 	"strings"
@@ -8,7 +8,8 @@ import (
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 )
 
-type markerAppConfigFactory struct {
+// ConfigFactory compiles app configuration for an Envoy filter instance.
+type ConfigFactory struct {
 	shared.EmptyHttpFilterConfigFactory
 }
 type markerAppFactory struct {
@@ -16,7 +17,7 @@ type markerAppFactory struct {
 	prepared *marker.Prepared
 }
 
-func (*markerAppConfigFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
+func (*ConfigFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
 	config, err := decodeAppConfig(data)
 	if err != nil {
 		return nil, err

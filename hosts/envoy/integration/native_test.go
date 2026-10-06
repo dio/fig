@@ -52,11 +52,11 @@ func TestNativeMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := strings.NewReplacer(
-		"/usr/local/lib/libfig_match.so", "{{.Module}}",
+		"__FIG_MODULE__", "{{.Module}}",
 		`"address": "0.0.0.0"`, `"address": "127.0.0.1"`,
 		`"port_value": 10000`, `"port_value": {{.ProxyPort}}`,
 		`"port_value": 9901`, `"port_value": {{.AdminPort}}`,
-		`"address": "echo"`, `"address": "127.0.0.1"`,
+		`"address": "__FIG_BACKEND__"`, `"address": "127.0.0.1"`,
 		`"port_value": 8080`, `"port_value": `+port,
 	).Replace(string(rendered))
 	process := envoytest.Start(t, envoytest.Options{Module: os.Getenv("FIG_MODULE"), Bootstrap: config, Env: []string{"GODEBUG=cgocheck=0"}})
@@ -264,7 +264,7 @@ func TestNativeRejectsInvalidBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := strings.ReplaceAll(string(rendered), "/usr/local/lib/libfig_match.so", os.Getenv("FIG_MODULE"))
+	config := strings.ReplaceAll(string(rendered), "__FIG_MODULE__", os.Getenv("FIG_MODULE"))
 	path := filepath.Join(t.TempDir(), "invalid.json")
 	if err := os.WriteFile(path, []byte(config), 0600); err != nil {
 		t.Fatal(err)

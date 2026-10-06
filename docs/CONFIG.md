@@ -17,7 +17,7 @@ application registry switch inside the bundle decoder.
 | `match` | Extractors, typed predicates, ordered selection, prepared views and evaluation | WAF policy fields, bundle transport, HTTP replies |
 | `apps/waf` | WAF schema validation, Match output contract, policy resolution, supported composition, outcome mappings | Generic publication infrastructure, Envoy handles |
 | `apps/waf/inspect` | Header-rule validation, Coraza engine preparation and transaction lifecycle | Bundle references, Match, Envoy, HTTP response mapping |
-| `hosts/envoy/internal/filter/wafapp.go` | Envoy inputs, per-stream result, metadata and local replies | Rule compilation, policy selection algorithms, generic bundle validation |
+| `apps/waf/envoy/filter.go` | Envoy inputs, per-stream result, metadata and local replies | Rule compilation, policy selection algorithms, generic bundle validation |
 | `bootstrap` | Embed supplied JSON into an Envoy fixture | Validate application semantics or prepare engines |
 
 The WAF app uses Match to select a policy reference and resolves it to a prepared
@@ -27,8 +27,9 @@ every primitive. Future LLM/MCP apps may compose Match, Pick and Adapt without p
 their fields into either Match or WAF.
 
 Apps live in the `apps` Go module, keeping Coraza out of Fig's core module.
-The `hosts/envoy` module owns the SDK and native integration harness. App packages
-import no Envoy SDK. These boundaries are implemented; the APIs remain experimental.
+Each app owns a separate `envoy` adapter module with the SDK dependency. The
+`hosts/envoy` executable composes these adapters and owns the local integration
+harness. App logic packages import no Envoy SDK. These boundaries are implemented; the APIs remain experimental.
 
 ## Authoring and envelope
 
