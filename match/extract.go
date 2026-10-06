@@ -16,7 +16,7 @@ type Factory func(FactSpec) (Phase, Extractor, error)
 type Registry map[string]Factory
 
 func Builtins() Registry {
-	return Registry{"input-field/v1": prepareField, "json-pointer/v1": prepareJSON, "body-json-pointer/v1": prepareBodyPointer}
+	return Registry{InputField: prepareField, JSONPointer: prepareJSON, BodyJSONPointer: prepareBodyPointer}
 }
 
 func decode(data []byte, dst any) error {
@@ -59,7 +59,7 @@ func prepareJSON(spec FactSpec) (Phase, Extractor, error) {
 	if err := decode(spec.Args, &args); err != nil {
 		return "", nil, err
 	}
-	if args.MaxBytes <= 0 || args.MaxDepth <= 0 || args.MaxDepth > 128 {
+	if args.MaxBytes <= 0 || args.MaxDepth <= 0 || args.MaxDepth > maxJSONDepth {
 		return "", nil, fmt.Errorf("positive maxBytes and maxDepth in 1..128 required")
 	}
 	pointer, err := body.PreparePointer(args.Pointer)
@@ -69,9 +69,9 @@ func prepareJSON(spec FactSpec) (Phase, Extractor, error) {
 	return BodyComplete, func(in Input) Fact {
 		doc, err := body.ParseLegacy(in.Body, args.MaxBytes, args.MaxDepth)
 		if err != nil {
-			code := "invalid_json"
+			code := CodeInvalidJSON
 			if err == body.ErrBytes {
-				code = "body_limit"
+				code = CodeBodyLimit
 			}
 			return Fact{State: Invalid, Code: code}
 		}
@@ -81,7 +81,7 @@ func prepareJSON(spec FactSpec) (Phase, Extractor, error) {
 
 func documentFact(doc *body.Document, pointer *body.Pointer) Fact {
 	if doc == nil {
-		return Fact{State: Invalid, Code: "body_unavailable"}
+		return Fact{State: Invalid, Code: CodeBodyUnavailable}
 	}
 	value, found := doc.Lookup(pointer)
 	if !found {
@@ -95,7 +95,7 @@ func documentFact(doc *body.Document, pointer *body.Pointer) Fact {
 	case "integer":
 		return Fact{State: Present, Value: Int(value.Int)}
 	default:
-		return Fact{State: Invalid, Code: "invalid_type"}
+		return Fact{State: Invalid, Code: CodeInvalidType}
 	}
 }
 

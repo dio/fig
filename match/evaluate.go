@@ -31,7 +31,7 @@ func (e *Evaluation[T]) Advance(input Input) Result[T] {
 	}
 	rank := input.Phase.rank()
 	if rank == 0 || rank < e.phase {
-		return e.fail("invalid_phase")
+		return e.fail(CodeInvalidPhase)
 	}
 	e.phase = rank
 	if rank < e.view.phase.rank() {
@@ -43,14 +43,14 @@ func (e *Evaluation[T]) Advance(input Input) Result[T] {
 		switch fact.State {
 		case Present:
 			if !fact.Value.valid() || fact.Value.Kind != definition.kind {
-				return e.fail("invalid_type")
+				return e.fail(CodeInvalidType)
 			}
 		case Missing:
 		case Invalid:
 			// Do not expose arbitrary implementation messages or input values.
-			return e.fail("invalid_fact")
+			return e.fail(CodeInvalidFact)
 		default:
-			return e.fail("extractor_contract")
+			return e.fail(CodeExtractorContract)
 		}
 		facts[definition.name] = fact
 	}
@@ -93,7 +93,7 @@ func (e *Evaluation[T]) snapshot() Result[T] {
 		// Each return gets independently owned maps/slices in the application's T.
 		if err := json.Unmarshal(e.output, &result.Value); err != nil {
 			result.Status = Failed
-			result.Code = "output_decode"
+			result.Code = CodeOutputDecode
 		}
 	}
 	return result

@@ -78,3 +78,25 @@ The host calls `body.Parse` once with byte/depth/node limits and supplies the sa
 immutable document to all facts. Missing documents fail extraction. Raw `Input.Body`
 is ignored by this extractor. `json-pointer/v1` retains legacy decoding semantics
 through a compatibility wrapper. See [Body](../docs/primitives/BODY.md).
+
+## Constants and verification
+
+`constants.go` owns primitive schema/extractor identifiers, predicate operators,
+phase/value/fact/result states and diagnostic codes. Existing serialized values are
+unchanged and covered by literal compatibility assertions. The bundle resource type
+remains owned by `match/config`, separately from the primitive schema.
+
+From the repository root:
+
+```sh
+go test -race -coverprofile=/tmp/fig-match-coverage.out ./match/...
+go test ./match -fuzz=FuzzPrepareAndEvaluate -fuzztime=10s
+make native-test ENVOY_BIN=/path/to/envoy
+```
+
+Tests cover preparation rejection, output validation, predicate truth tables and depth
+boundaries, extractor arguments and JSON failures, first-match/default/no-match behavior,
+phase progression, cancellation, concurrent terminal results, and ownership of input
+configuration and returned output. Header-resource tests cover the supported fact
+contract and explicit fallback requirements. Fuzzing checks bounded input preparation
+and terminal-state stability; it is not a proof over every input or a benchmark.

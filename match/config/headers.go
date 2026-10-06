@@ -37,7 +37,7 @@ func PrepareHeaders[T any](resource bundle.Resource, outputType string, validate
 		return nil, fmt.Errorf("header phase and output type %q required", outputType)
 	}
 	for _, fact := range s.Facts {
-		if fact.Extractor != "input-field/v1" || fact.Type != match.String {
+		if fact.Extractor != match.InputField || fact.Type != match.String {
 			return nil, fmt.Errorf("unsupported header extractor")
 		}
 		var args struct {
@@ -54,8 +54,8 @@ func PrepareHeaders[T any](resource bundle.Resource, outputType string, validate
 	if hasDefault && s.OnNoMatch.Return != "" || !hasDefault && s.OnNoMatch.Return != "no-match" {
 		return nil, fmt.Errorf("explicit onNoMatch result or no-match required")
 	}
-	return match.Prepare[T](match.Spec{
-		Schema: "fig.match/v1", Name: resource.Name, Revision: resource.Version, Phase: s.Phase,
+	return match.Prepare(match.Spec{
+		Schema: match.Schema, Name: resource.Name, Revision: resource.Version, Phase: s.Phase,
 		Facts: s.Facts, Rules: s.Rules, Default: s.OnNoMatch.Result,
 	}, match.Builtins(), validate)
 }

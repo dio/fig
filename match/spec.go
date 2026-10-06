@@ -9,11 +9,6 @@ import (
 
 type Phase string
 
-const (
-	Headers      Phase = "request-headers"
-	BodyComplete Phase = "request-body-complete"
-)
-
 func (p Phase) rank() int {
 	switch p {
 	case Headers:
@@ -26,12 +21,6 @@ func (p Phase) rank() int {
 }
 
 type Kind string
-
-const (
-	String  Kind = "string"
-	Boolean Kind = "boolean"
-	Integer Kind = "integer"
-)
 
 // Value has one typed payload. Constructors avoid ambiguous zero values.
 type Value struct {
@@ -91,13 +80,6 @@ type Spec struct {
 
 type FactState string
 
-const (
-	Pending FactState = "pending"
-	Present FactState = "present"
-	Missing FactState = "missing"
-	Invalid FactState = "invalid"
-)
-
 type Fact struct {
 	State FactState
 	Value Value
@@ -115,14 +97,6 @@ type Input struct {
 }
 
 type Status string
-
-const (
-	Waiting   Status = "waiting"
-	Selected  Status = "selected"
-	NoMatch   Status = "no-match"
-	Failed    Status = "failed"
-	Cancelled Status = "cancelled"
-)
 
 type Result[T any] struct {
 	Status     Status

@@ -30,7 +30,7 @@ type Prepared[T any] struct {
 // Prepare validates every output, including the default. validate can resolve
 // scoped references against the caller's generation; it must not publish state.
 func Prepare[T any](spec Spec, registry Registry, validate func(T) error) (*Prepared[T], error) {
-	if spec.Schema != "fig.match/v1" || spec.Name == "" || spec.Revision == "" {
+	if spec.Schema != Schema || spec.Name == "" || spec.Revision == "" {
 		return nil, fmt.Errorf("schema, name and revision required")
 	}
 	if spec.Phase.rank() == 0 {
@@ -109,15 +109,15 @@ func prepareOutput[T any](raw json.RawMessage, validate func(T) error) (json.Raw
 }
 
 func compilePredicate(p Predicate, types map[string]Kind, depth int) (func(map[string]Fact) bool, error) {
-	if depth > 32 {
+	if depth > maxPredicateDepth {
 		return nil, fmt.Errorf("predicate depth limit")
 	}
 	switch p.Op {
-	case "all", "any", "not":
+	case OpAll, OpAny, OpNot:
 		if p.Fact != "" || len(p.Values) != 0 || len(p.Children) == 0 {
 			return nil, fmt.Errorf("invalid boolean predicate")
 		}
-		if p.Op == "not" && len(p.Children) != 1 {
+		if p.Op == OpNot && len(p.Children) != 1 {
 			return nil, fmt.Errorf("not requires one child")
 		}
 		children := []func(map[string]Fact) bool{}
@@ -130,31 +130,31 @@ func compilePredicate(p Predicate, types map[string]Kind, depth int) (func(map[s
 		}
 		op := p.Op
 		return func(facts map[string]Fact) bool {
-			if op == "not" {
+			if op == OpNot {
 				return !children[0](facts)
 			}
 			for _, child := range children {
 				value := child(facts)
-				if op == "all" && !value {
+				if op == OpAll && !value {
 					return false
 				}
-				if op == "any" && value {
+				if op == OpAny && value {
 					return true
 				}
 			}
-			return op == "all"
+			return op == OpAll
 		}, nil
-	case "equals", "in", "exists", "isMissing":
+	case OpEquals, OpIn, OpExists, OpIsMissing:
 		kind, ok := types[p.Fact]
 		if !ok || len(p.Children) != 0 {
 			return nil, fmt.Errorf("unknown fact or unexpected children")
 		}
 		switch p.Op {
-		case "equals":
+		case OpEquals:
 			if len(p.Values) != 1 {
 				return nil, fmt.Errorf("equals requires one value")
 			}
-		case "in":
+		case OpIn:
 			if len(p.Values) == 0 {
 				return nil, fmt.Errorf("in requires values")
 			}
@@ -172,13 +172,13 @@ func compilePredicate(p Predicate, types map[string]Kind, depth int) (func(map[s
 		name, op := p.Fact, p.Op
 		return func(facts map[string]Fact) bool {
 			fact := facts[name]
-			if op == "isMissing" {
+			if op == OpIsMissing {
 				return fact.State == Missing
 			}
 			if fact.State != Present {
 				return false
 			}
-			if op == "exists" {
+			if op == OpExists {
 				return true
 			}
 			for _, value := range values {
