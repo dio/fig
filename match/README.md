@@ -1,4 +1,4 @@
-# Match spike
+# Match primitive
 
 Experimental Go API; no compatibility promise. Standard library only.
 
@@ -11,11 +11,8 @@ result := evaluation.Advance(input)
 // Selected: consume result.Value; policy/plan execution happens elsewhere.
 ```
 
-Run the WAF-policy and LLM-plan examples:
-
-```sh
-go run ./cmd/match-spike
-```
+Run all module tests with `make test`, or exercise the composed apps through local
+Envoy with `make native-test ENVOY_BIN=/path/to/envoy` from the repository root.
 
 ## Functions to evaluate
 
@@ -32,7 +29,7 @@ go run ./cmd/match-spike
 `T` is application-owned JSON data: e.g. a policy reference, routing-plan reference
 or decision definition. Each selected result is independently decoded, including
 nested maps/slices. Do not use custom unmarshaling with side effects or nondeterministic
-behavior. The spike has no output registry: the generic type plus validator provides
+behavior. The implementation has no output registry: the generic type plus validator provides
 that seam. Output resource ownership remains the caller's responsibility.
 
 ## Implemented subset
@@ -59,7 +56,7 @@ extractor; there are no background goroutines or asynchronous callouts.
 
 ## Deliberately absent
 
-The core has no Envoy dependency. A separate [native Envoy spike](../spike/envoy/README.md)
+The core has no Envoy dependency. A separate [local Envoy integration](../docs/LOCAL_DEVELOPMENT.md)
 now exercises this API with real traffic. The core still has no HTTP parser, shared
 buffer broker, source transport, publication
 manager, revocation, resource leases, authentication, WAF engine or plan executor.
@@ -68,13 +65,11 @@ Match view, but external engines/resources still require the eventual runtime's 
 contract. There is no explicit `Release` until that ownership is introduced.
 
 Specs are Go structs with JSON tags. A hardened bounded wire decoder, configuration
-size quotas and stable schema are not provided. Built-in JSON extraction currently
-parses separately per declared JSON fact; share parsing later if measurements warrant
-it. No performance or production-readiness claim is made.
+size quotas and stable schema are not provided. The legacy JSON extractor parses separately per fact; the shared-document extractor
+below reuses one parse. No performance or production-readiness claim is made.
 
-Verification for this initial change: `go build ./...`, `go vet ./...`, and execution
-of the example command. No automated test suite was added or run. The acceptance
-matrix in [the design](../docs/primitives/MATCH.md) remains work for qualification.
+Unit and native integration tests cover implemented behavior. The broader acceptance
+matrix in [the design](../docs/primitives/MATCH.md) includes future qualification.
 
 ## Shared body input
 

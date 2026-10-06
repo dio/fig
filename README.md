@@ -14,8 +14,8 @@ API access and WAF inspection.
 Apps contribute composable modules with explicit downstream, upstream, or host-selection
 placement and typed handoff requirements.
 
-An experimental [Go Match spike](match/README.md) now exercises preparation, typed
-fact extraction and selection. Run `go run ./cmd/match-spike`. The broader runtime
+The experimental [Match primitive](match/README.md) implements preparation, typed
+fact extraction and selection. Use `make test` for all modules. The broader runtime
 remains a design proposal; APIs and schemas are not stable.
 
 ## Single-Envoy native tests — no Docker
@@ -30,14 +30,14 @@ make native-test ENVOY_BIN="$HOME/.tetrate/bin/envoy"
 This builds the host-native module and starts one Envoy child process from Go tests,
 with an in-process HTTP backend. Fig imports the published, pinned `dio/kona/envoytest`
 runner; no sibling checkout is required. See [setup, binary download, and the native
-workflow](spike/envoy/README.md#native-development-loop-no-docker).
+workflow](docs/LOCAL_DEVELOPMENT.md#native-development-loop-no-docker).
 
-See the [walkthrough and qualification results](spike/envoy/README.md) for the
+See the [walkthrough and qualification results](docs/LOCAL_DEVELOPMENT.md) for the
 local runtime pin and SDK limitation.
 
 The native fixture now includes a minimal Coraza WAF stage: selected policy → header
 inspection → continue/block/error, including detection-only mode. See the
-[WAF cases](spike/envoy/README.md#bundle-and-execution).
+[WAF cases](docs/LOCAL_DEVELOPMENT.md#bundle-and-execution).
 
 The WAF app now consumes [the bundle](examples/config/waf.json) during Envoy config
 creation. `bundle` owns decoding/references, `match` remains a primitive, and
@@ -64,7 +64,7 @@ hosts/envoy/                separate Go module: Envoy SDK and host integration
   internal/filter/           standalone Match demo; no app imports
   integration/              native traffic tests, bootstrap and test backend
 examples/config/            consumed app bundles
-spike/envoy/                walkthrough and fixture launchers
+docs/LOCAL_DEVELOPMENT.md   local workflow and qualification
 ```
 
 Dependencies flow from the executable → app adapters → app logic → core. Core has

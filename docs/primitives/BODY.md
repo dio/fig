@@ -89,7 +89,7 @@ option. No fallback to a different parser after a parse error.
   claimed for the current Go decoder implementation.
 - Preserve number precision. String, boolean and signed 64-bit integer facts have
   exact types; no trimming, coercion, float rounding or null-to-missing conversion.
-  The initial integer extractor accepts only integer lexical forms, as the spike does.
+  The initial integer extractor accepts only integer lexical forms, as the legacy extractor does.
 - JSON Pointer uses explicit escaping and canonical nonnegative array indexes.
   Absent paths yield Missing; a present null, object, array or incompatible scalar
   yields Invalid for the initial scalar fact types. A missing pointer is distinct

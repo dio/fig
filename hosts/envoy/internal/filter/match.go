@@ -238,7 +238,7 @@ func (f *filter) finish(phase match.Phase) bool {
 	switch result.Status {
 	case match.Selected:
 		f.done = true
-		// Metadata is the host-local handoff; headers make the spike visible at the backend.
+		// Metadata is the host-local handoff; headers make the result visible at the backend.
 		f.handle.SetMetadata("fig.match", f.factory.config.Spec.Name, map[string]any{
 			"ref": result.Value.Ref, "rule": result.RuleID, "generation": result.Generation,
 		})

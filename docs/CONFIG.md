@@ -59,7 +59,7 @@ The empty resource list above only illustrates the wrapper; it is invalid as a r
 bundle. The complete working example is linked above. One fully prepared object owns
 the matcher, prepared policies and action mappings. Factories publish no partial state.
 Each stream retains its factory's object. Replacing a generation dynamically is future
-work; the spike does not claim multi-config atomic updates across independent filters.
+work; the implementation does not claim multi-config atomic updates across independent filters.
 
 ## Match resource
 

@@ -1,4 +1,4 @@
-# Native Envoy app spike
+# Local development
 
 The fixture runs a **WAF app composed from Match and Coraza inspection**, followed by
 a Marker app and an independent body-Match demonstration, inside one Envoy process.
@@ -8,11 +8,11 @@ canonical WAF bundle -> WAF app compiler -> prepared Match + policies + outcome 
                                            |
 request -> fig-waf-app: Match -> resolve policy -> inspect -> continue / local reply
         -> fig-marker-app: Match -> apply diagnostic value
-        -> legacy body Match for /chat -> Envoy router -> echo backend
+        -> body Match for /chat -> Envoy router -> echo backend
 ```
 
 Match is a primitive. WAF owns its policy schema, typed selection output, composition
-and inspection semantics. The [configuration design](../../docs/CONFIG.md) describes
+and inspection semantics. The [configuration design](CONFIG.md) describes
 these boundaries and the deliberately limited supported pipeline.
 
 ## Native development loop (no Docker)
@@ -126,7 +126,7 @@ The fixture also consumes `examples/config/marker.json`: `/chat` selects
 `chat-request`, `/observe` selects `observe-request`, and other paths skip marking.
 Tests assert upstream marker values, spoof removal, independent typed output and
 that a WAF block prevents Marker execution. Hostname-specific activation remains
-[design work](../../docs/ACTIVATION.md); all hosts currently share this fixed chain.
+[design work](ACTIVATION.md); all hosts currently share this fixed chain.
 
 ## Shared JSON body parser
 
@@ -139,15 +139,13 @@ one on successful body evaluation and is stripped from incoming requests.
 
 Native tests cover two-fact sharing, Unicode/node rejection, no backend receipt on
 errors and unchanged forwarded bytes. The bundle-level Body resource and cross-app
-sharing described in [the contract](../../docs/primitives/BODY.md) remain unimplemented.
+sharing described in [the contract](primitives/BODY.md) remain unimplemented.
 
 ## Code ownership
 
-This directory contains launchers and the walkthrough, not reusable Go packages.
-The local development loop is owned by `hosts/envoy/Makefile`. The Makefile here
-forwards `native-build` and `native-test` for compatibility. App callbacks live in separate `apps/marker/envoy` and `apps/waf/envoy` modules;
-`cmd/fig-envoy` composes their factories. `hosts/envoy/internal/filter` contains only
-the standalone Match demo.
-Apps live in the separate `apps` module. See the root README for all module boundaries.
-Current qualification is local native Envoy only. The Docker/Compose fixture and
-its Python runner have been removed.
+Run `make test` or `make native-test` from the repository root. The local Envoy build
+is owned by `hosts/envoy/Makefile`. App callbacks live in separate `apps/marker/envoy`
+and `apps/waf/envoy` modules; `hosts/envoy/cmd/fig-envoy` composes their factories.
+`hosts/envoy/internal/filter` contains the standalone Match adapter used by this fixture.
+See the [root README](../README.md) for module boundaries. Current qualification is
+local native Envoy only; APIs remain experimental.
