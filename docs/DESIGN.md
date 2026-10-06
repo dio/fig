@@ -9,7 +9,8 @@ boundaries exist and which decisions remain open.
 
 Describe how a runtime extracts facts, selects component behavior, and executes
 that behavior using serializable specifications. Consumers are open-ended: MCP
-profile routing, MCP tool routing, Jev decisions, caching, LLM routing, API gateway
+profile routing, MCP tool routing, Jev decisions, caching, bring-your-own guardrails,
+LLM routing, API gateway
 behavior and WAF inspection are examples, not a closed set of applications.
 
 A selected behavior may inspect, evaluate, transform, serve a local result, invoke a
@@ -271,6 +272,7 @@ are separate designs.
 | MCP profile routing | Profile selectors, capability exposure and server/tool bindings | Captured profile and any session binding | A profile update must not silently broaden existing authority or retarget an active session |
 | MCP tool routing | Qualified tool identities, argument schemas and invocation bindings | Validated call identity, arguments and attempt state | Discovery and invocation must agree; replay safety depends on the tool's side effects |
 | Jev | Typed decision definitions, input/output schemas and execution bindings | Validated decision input and evaluation/result state | Validate result type; any escalation or handoff is explicit behavior |
+| Guardrails | Versioned policy, input mapping, approved execution binding and result schema | Captured policy, call deadline, transformed content and any stream holdback | Required checks precede protected effects; denial cannot be escaped through fallback |
 | Cache | Key extraction, eligibility, partitioning, freshness and invalidation policy | Key, lookup result and any owned fill operation | Preserve tenant/identity isolation; policy replacement is distinct from entry invalidation |
 
 These are illustrative Fig contracts, not claims that all adapters already exist.
@@ -314,6 +316,113 @@ bypass them because no upstream dispatch occurs. Coalesced fills need ownership 
 so cancellation by one waiter does not incorrectly cancel work owned by other waiters.
 Stale-while-revalidate, negative caching and semantic caching require separate declared
 policies; none is implied by the existence of a cache stage.
+
+### Guardrails and bring-your-own implementations
+
+Guardrails are typed component stages. They may inspect model inputs/outputs, tool
+arguments/results, retrieved content or other declared data. Their purpose and input
+schema are not limited to text moderation or a particular model provider.
+
+The specification separates:
+
+- **Binding:** approved local implementation or remote service, versioned protocol,
+  capability declarations, transport trust, and private credential references.
+- **Policy:** versioned provider-specific parameters and permitted decisions/mutations.
+- **Attachment:** selection conditions, execution phase, required versus optional
+  enforcement, order, content mapping, timeout and failure policy.
+
+An illustrative attachment (names are proposed, not LiteLLM wire fields):
+
+```yaml
+guardrail:
+  bindingRef: tenant-a/content-check
+  policyRef: tenant-a/content-policy-v3
+  phase: before-invocation
+  inputMappingRef: chat-content-v1
+  required: true
+  timeout: 300ms
+  onUnavailable: reject
+  permittedOutcomes: [allow, block, transform]
+```
+
+Selection can choose an approved attachment using trusted tenant/profile/operation
+facts. Caller-supplied guardrail names cannot remove mandatory guards, choose arbitrary
+network endpoints or grant access to another tenant's policy. A binding can reference
+a registered local implementation or an authenticated remote endpoint. Remote HTTP
+adapters are the initial BYO integration candidate; deployed implementation artifacts
+are separate from streamed configuration and cannot be uploaded as arbitrary code
+inside a spec.
+
+**BYO lifecycle:** management receives a scoped registration, validates ownership,
+endpoint/data-sharing permissions and policy, then approves an exact version for
+publication. Preparation resolves that approved binding and checks capabilities.
+Revocation/removal follows explicit retirement rules. Fig's runtime consumes approved
+resources; it does not introduce a second approval or permission service. Deployment
+policy can govern trusted operator-authored bindings without requiring a particular UI.
+
+**Results:** normalize supported adapter responses into allow, block, or a bounded
+typed transformation. Transport failure, timeout, malformed results and unsupported
+content are execution errors, not successful allows. The proposed default for a
+required guard is rejection on these errors. An explicitly authorized observe-only
+or fail-open policy must be visible in the spec and observations. Policy denial is
+terminal for the protected operation; retry/fallback cannot search for a target that
+omits the guard.
+
+**Content mapping:** extraction declares the exact fields and modalities sent for
+inspection. Transformations identify their source locations and permitted fields;
+validate the result before applying it. Preserve call IDs and protocol structure.
+Do not flatten tool arguments or structured messages into text and assume a safe
+inverse mapping. Cap request/result sizes and use allowlisted metadata. Private
+credentials and unrelated request data are not forwarded by default.
+
+A transformation creates a new request representation with provenance. Invalidate or
+recompute facts, cache keys and authorization decisions that depended on changed fields.
+Do not let a rewrite silently select a different tool, target or trust scope. If such
+changes are supported, revalidate their dependencies with bounded execution; never
+introduce an unbounded re-selection loop.
+
+**Execution phase and commitment:**
+
+| Placement | Required contract |
+|---|---|
+| Before invocation | Finish required input checks before dispatching the protected call |
+| Before tool execution | Check the final validated tool arguments before side effects |
+| Before result release | Inspect or transform a buffered result before downstream commitment |
+| Streaming release | Declare chunk/window semantics, bounded holdback and cross-chunk state |
+| Observation after release | Audit only; cannot claim to have prevented delivery or side effects |
+
+Running a check concurrently with upstream work cannot guarantee prevention of
+upstream processing. Whole-response safety requires bounded buffering before release;
+chunk checks cannot imply whole-response guarantees. Once bytes are released they
+cannot be recalled. A later streaming violation may terminate the stream using the
+protocol's supported mechanism but must not be reported as prevention of earlier delivery.
+Unsupported phase/modality/streaming combinations fail preparation rather than silently
+skipping a required guard.
+
+**Composition:** mandatory input guards run before any protected invocation, including
+fallback targets and tool calls. Required output checks also cover cached/local results.
+Declare whether the cache stores original or transformed content and bind reusable
+validation evidence to content, tenant/scope, policy version and required context.
+A cached allow from an older policy cannot silently bypass current enforcement.
+
+Guardrail calls consume bounded execution time and have their own limited retry policy;
+they are accounted separately from model/tool attempts and cannot recursively invoke
+unbounded guardrail pipelines. Reusing an input decision across attempts requires
+identical relevant content, scope and policy; target-specific changes require rechecking.
+Independent pure checks could later run in parallel, but transforming checks require
+explicit order and defined dependencies.
+
+For LiteLLM custom guardrails, an adapter can host an existing `CustomGuardrail`
+implementation and translate its `apply_guardrail` inputs, returned modifications and
+intentional rejections. A deployed Python adapter service or registered native
+implementation must declare its supported phases and modalities. Unexpected exceptions
+remain execution errors. The configuration references that implementation; it does not
+contain Python source or require Fig to load arbitrary classes.
+
+A LiteLLM Generic Guardrail API adapter is another candidate compatibility path, with explicit
+mapping of supported capabilities into these contracts. This is not a promise of Python
+plugin compatibility or complete protocol support. [RATIONALE.md](RATIONALE.md#decision-10-bring-your-own-guardrails-through-explicit-bindings)
+distinguishes the referenced LiteLLM concepts from Fig's proposed behavior.
 
 ### WAF and shared lifecycle requirements
 
@@ -380,6 +489,9 @@ Before selecting a wire protocol, executable examples must establish:
 - MCP profile/tool selection with consistent advertised and invoked tool identities,
   argument validation, session update rules, and no replay of non-replayable calls.
 - Jev typed input/output selection without requiring LLM execution.
+- BYO guardrail registration/approval isolation, allow/block/transform/error handling,
+  required checks on cached results and fallback attempts, bounded transformations,
+  cross-chunk behavior, and no claim of blocking after content has been released.
 - Cache key isolation, explicit invalidation, and local hits that preserve required
   access/protection gates; mutable cache entries remain outside immutable views.
 - Missing versus pending facts, malformed bodies, bounds and ambiguous selection.
@@ -396,7 +508,7 @@ Before selecting a wire protocol, executable examples must establish:
 
 First specify a representative matrix and its expected event traces: LLM model
 routing, API operation selection, WAF policy/mode selection, MCP profile/tool routing,
-Jev decision selection and cache lookup/local completion. This matrix exercises the
+Jev decision selection, cache lookup/local completion, and BYO guardrail enforcement. This matrix exercises the
 abstraction; it does not require implementing every adapter in the first slice.
 
 Then define typed extraction, selection results, component outcomes, prepared-view

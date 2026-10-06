@@ -160,7 +160,7 @@ and [EG's cert-manager installation path](https://github.com/dio/kona/blob/main/
 
 ## Decision 9: consumers are extensible, and completion can be local
 
-**Choice:** treat WAF, API access, LLM, MCP profiles/tools, Jev and cache as examples
+**Choice:** treat WAF, API access, LLM, MCP profiles/tools, Jev, cache and guardrails as examples
 of typed components. Their selection outputs and prepared contents stay specific to
 their contracts. Shared composition describes phases, dependencies, outcomes and
 lifetime without a closed application-name list.
@@ -180,10 +180,66 @@ This extends the conceptual scope; it does not establish implementation support 
 claim these projects already share one runtime. Component registration and schema
 validation must reject unsupported behavior explicitly.
 
+## Decision 10: bring-your-own guardrails through explicit bindings
+
+**Choice:** model guardrails as typed stages with approved execution bindings, policies
+and attachments. A remote adapter lets a team operate its own implementation while the
+host retains responsibility for selection, enforcement, bounds and observations.
+
+The user-confirmed reference is **LiteLLM custom guardrails**. Its documentation
+was checked on 2026-10-06; the related team BYO flow is an additional management example:
+
+- [Team BYO guardrails](https://docs.litellm.ai/docs/proxy/guardrails/team_based_guardrails)
+  separates scoped registration from review and activation; this registration path is
+  restricted to its Generic Guardrail API.
+- [Generic Guardrail API](https://docs.litellm.ai/docs/adding_provider/generic_guardrail_api)
+  describes an HTTP contract for extracted content and decisions to block, allow
+  unchanged, or intervene with modifications. It is documented as beta.
+- [Custom guardrails](https://docs.litellm.ai/docs/proxy/guardrails/custom_guardrail)
+  describes code implementing `apply_guardrail` and lifecycle hooks for input/output
+  processing. This is a different integration path from team HTTP registration.
+
+For the custom-class path, the mapping is: content extraction and `input_type` become
+an explicit input/phase contract; returned inputs become an allow or validated
+transformation; intentional rejection becomes block. An adapter must distinguish a
+policy rejection from an unexpected exception instead of translating every exception
+into either an allow or a policy verdict. Python lifecycle hook names do not determine
+Fig's release guarantees automatically.
+
+Existing Python classes could be hosted behind a versioned adapter service. A native
+registered implementation is another option, with separate qualification. Both require
+capability checks for supported content, mutation and streaming behavior. The initial
+proposal does not embed a Python interpreter or promise to load every LiteLLM plugin.
+
+Fig borrows the separation of user-owned implementation, declarative attachment and
+host-enforced result. It does not adopt LiteLLM's complete management model, execute
+arbitrary Python from a streamed document, or claim compatibility before an adapter
+has been versioned and tested. Its local implementation registry and remote binding
+model are independent deployment choices.
+
+The following are Fig proposals, not assertions about LiteLLM behavior:
+
+- Required checks are governed by publication authority, not optional caller input.
+- Error and policy denial have different meanings; failure behavior is explicit.
+- Content transformations preserve provenance and trigger revalidation of dependent
+  facts, routing, authorization and cache keys.
+- A result released from cache is still subject to required policy. Fallback does not
+  erase an input or tool-call denial.
+- Concurrent inspection and observation after release cannot claim to have prevented
+  upstream processing or content delivery. Streaming needs an explicit buffering and
+  release contract.
+- Credentials, outbound endpoint authorization and allowed data sharing are part of
+  binding admission; mTLS alone does not authorize transmitting arbitrary request data.
+
+This case broadens the view abstraction usefully: a prepared view may select a remote
+policy execution binding rather than contain the policy engine itself. Mutable calls,
+stream holdback and transformed content still belong to request state. The common
+contract is preparation, typed invocation and lifetime, not a universal guardrail model.
+
 ## Decisions still required before implementation
 
 1. **Examples and phases:** exact fact sets, selection results and event traces for
-   LLM routing, API access, WAF, MCP profiles/tools, Jev and cache; where trusted
+   LLM routing, API access, WAF, MCP profiles/tools, Jev, cache and guardrails; where trusted
    identity becomes available, where sessions bind, and where local completion is legal.
 2. **Schema:** protobuf, JSON Schema, or another authoritative definition; error
    vocabulary; compatibility and extension registration.
@@ -198,7 +254,8 @@ validation must reject unsupported behavior explicitly.
 7. **Delivery:** Delta ADS or another protocol, reconnect behavior, slow subscribers,
    authorization, message limits and how streaming fits the host integration.
 8. **Component state:** MCP session/catalog consistency, tool replay permission, Jev
-   result validation, cache isolation/invalidation and fill ownership. Determine which
+   result validation, cache isolation/invalidation and fill ownership, and guardrail
+   transformation/streaming contracts. Determine which
    guarantees belong to shared composition versus the component implementation.
 9. **Qualification:** focused model tests followed by real-host traffic, including
    backend non-receipt on denials and cancellation. Existing project evidence does
