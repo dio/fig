@@ -53,7 +53,7 @@ remain design topics and are not required by the development loop.
 body/                       bounded immutable JSON views
 bundle/                     strict envelope decoding and exact references
 match/                      fact extraction and selection
-matchconfig/                serializable Match resource preparation
+match/config/                serializable Match resource preparation
 apps/                       independently versioned app modules
   marker/                   Match → diagnostic marker
   waf/                      Match → policy → Coraza inspection

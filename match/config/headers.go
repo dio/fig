@@ -1,6 +1,6 @@
-// Package matchconfig bridges serializable bundle resources to the Match primitive.
+// Package config bridges serializable bundle resources to the Match primitive.
 // It contains no app result types, policies, effects, or Envoy dependencies.
-package matchconfig
+package config
 
 import (
 	"encoding/json"

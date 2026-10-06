@@ -188,7 +188,7 @@ select different values; other paths explicitly continue without a marker. Match
 errors map to terminal 5xx. Applying the bounded literal is infallible and has no
 configurable error mapping. Marker is diagnostic, not an authorization mechanism.
 
-`matchconfig.PrepareHeaders[T]` shares resource decoding and header-fact validation;
+`PrepareHeaders[T]` in `match/config` shares resource decoding and header-fact validation;
 the caller supplies its output type and validator. The primitive remains unaware of
 apps. `apps/marker` imports neither WAF, Coraza nor the Envoy SDK. Its Envoy adapter
 strips caller marker values and emits its own selected diagnostic value upstream and

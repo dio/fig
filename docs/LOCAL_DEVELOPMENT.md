@@ -85,7 +85,7 @@ No provider routing, actual LLM execution, full WAF/CRS or live bundle updates a
 - Root `bundle`: strict decoding and exact resource references; no app knowledge.
 - Root `match`: reusable fact extraction/selection primitive.
 - `apps/marker`: independent Match → literal marker app; no WAF/Coraza/SDK dependency.
-- Root `matchconfig`: shared typed header-resource preparation.
+- Root `match/config`: shared typed header-resource preparation.
 - `apps/waf`: app compiler and execution, including typed Match output and action mappings.
 - `apps/waf/inspect`: policy preparation and Coraza inspection; no bundle/Match/Envoy imports.
 - `apps/waf/envoy/filter.go`: Envoy callbacks; adapts owned inputs and applies app outcomes.

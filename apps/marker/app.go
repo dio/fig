@@ -8,7 +8,7 @@ import (
 
 	"github.com/dio/fig/bundle"
 	"github.com/dio/fig/match"
-	"github.com/dio/fig/matchconfig"
+	matchconfig "github.com/dio/fig/match/config"
 )
 
 const (
