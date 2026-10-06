@@ -8,4 +8,7 @@ API access and WAF inspection.
 - [Design](docs/DESIGN.md): responsibilities, semantics, invariants and examples.
 - [Rationale](docs/RATIONALE.md): source findings, tradeoffs and open decisions.
 
+Apps contribute composable modules with explicit downstream, upstream, or host-selection
+placement and typed handoff requirements.
+
 This is a design proposal. There is no runtime implementation or stable schema yet.

@@ -236,28 +236,58 @@ policy execution binding rather than contain the policy engine itself. Mutable c
 stream holdback and transformed content still belong to request state. The common
 contract is preparation, typed invocation and lifetime, not a universal guardrail model.
 
+## Decision 11: compose modules by placement, not whole apps in one chain
+
+**Choice:** an app contributes individually placeable modules. Each module declares
+where it can run and which typed facts, handoffs and capabilities it requires. Users
+compose instances subject to those contracts.
+
+LLM is the motivating example: downstream Match selects the logical operation and
+plan, while upstream Adapt and credential injection operate on the actual attempt's
+target. Pick occupies a host-selection integration point. WAF is downstream-only,
+including its response inspection callbacks. These placements cannot be represented
+accurately by ordering a single "LLM app" beside a single "WAF app."
+
+A fixed universal filter list would prevent valid compositions. Unchecked arbitrary
+ordering would permit missing facts, invalid signatures, leaked credentials or bypassed
+protection. Declared placements, phase-aware handoffs and mandatory ordering constraints
+allow flexibility while making invalid arrangements fail before activation.
+
+Upstream placement also exposes a lifetime distinction: retry/fallback can change the
+target, adaptation and credential for each attempt while downstream policy state remains
+attached to the client stream. Treating both as the same request-global mutable object
+would risk carrying provider-specific state into another attempt.
+
+Logical placement is a Fig contract. Physical Envoy listeners, HTTP filter chains,
+clusters and callback APIs are host-adapter concerns. We must prove lowering and actual
+traffic behavior for each supported arrangement. Having an installation API or a module
+binary alone is not evidence that an arrangement executes correctly.
+
 ## Decisions still required before implementation
 
 1. **Examples and phases:** exact fact sets, selection results and event traces for
    LLM routing, API access, WAF, MCP profiles/tools, Jev, cache and guardrails; where trusted
    identity becomes available, where sessions bind, and where local completion is legal.
-2. **Schema:** protobuf, JSON Schema, or another authoritative definition; error
+2. **Placement and handoffs:** module descriptor capabilities, compatible locations,
+   typed producers/consumers, request/response traversal, per-attempt lifetime and actual
+   host lowering. Distinguish downstream-only WAF from upstream adaptation/authentication.
+3. **Schema:** protobuf, JSON Schema, or another authoritative definition; error
    vocabulary; compatibility and extension registration.
-3. **Activation scope:** which resources can update independently and which must move
+4. **Activation scope:** which resources can update independently and which must move
    together; staging bounds and recovery from missing versions.
-4. **Authority contracts:** expiry, invalidating replacement, removal, rollback and
+5. **Authority contracts:** expiry, invalidating replacement, removal, rollback and
    outage behavior per resource type.
-5. **Execution:** precise failure classification, host reselection, replay permission,
+6. **Execution:** precise failure classification, host reselection, replay permission,
    quota accounting, timeout inheritance and response commitment.
-6. **Native lifetime:** ownership of engines, request transactions, credentials and
+7. **Native lifetime:** ownership of engines, request transactions, credentials and
    host handles; limits for long-lived requests and retained generations.
-7. **Delivery:** Delta ADS or another protocol, reconnect behavior, slow subscribers,
+8. **Delivery:** Delta ADS or another protocol, reconnect behavior, slow subscribers,
    authorization, message limits and how streaming fits the host integration.
-8. **Component state:** MCP session/catalog consistency, tool replay permission, Jev
+9. **Component state:** MCP session/catalog consistency, tool replay permission, Jev
    result validation, cache isolation/invalidation and fill ownership, and guardrail
    transformation/streaming contracts. Determine which
    guarantees belong to shared composition versus the component implementation.
-9. **Qualification:** focused model tests followed by real-host traffic, including
+10. **Qualification:** focused model tests followed by real-host traffic, including
    backend non-receipt on denials and cancellation. Existing project evidence does
    not automatically qualify a new Fig adapter.
 

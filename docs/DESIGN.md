@@ -46,6 +46,118 @@ Gateway API, AI-oriented APIs, files and other authoring surfaces can be adapter
 Fig does not require a new public CRD. An internal serializable execution contract
 still needs precise semantics even when the user-facing API is an existing standard.
 
+### Apps contribute modules with explicit placement
+
+An app is a grouping of behavior and contracts, not necessarily one filter or one
+placement. WAF, LLM, MCP, Jev, cache and guardrails should be implemented as individually
+composable modules. An app can contribute several modules that share typed views and
+handoff contracts while running at different locations.
+
+Users arrange module instances within the compatibility constraints declared by those
+modules and the capabilities of the target host. Fig must not require a fixed global
+app sequence or accept an arbitrary sequence that cannot execute correctly.
+
+Placement, callback direction and lifetime are separate dimensions:
+
+- **Downstream HTTP:** attached to the client-facing stream. A module can process
+  request and response events here, retaining stream-owned state.
+- **Upstream HTTP:** attached to an upstream attempt's stream. A module can process
+  the attempt's outgoing request and incoming response with attempt-owned state.
+- **Host selection:** an executor/Pick integration point, not an HTTP filter slot.
+
+“Downstream-only” does not mean “request-only.” WAF belongs on the downstream HTTP
+stream and may inspect both the request and the response there. A response callback
+does not, by itself, imply upstream placement.
+
+Proposed decomposition:
+
+| App/module | Compatible placement | Inputs and responsibility |
+|---|---|---|
+| WAF inspection | Downstream HTTP only | Capture selected policy/mode; inspect the client stream and retain its transaction |
+| LLM match | Downstream HTTP | Extract logical model/operation facts; select and publish a routing plan |
+| LLM adaptation | Upstream HTTP | Use the current attempt binding to rewrite provider request/response representations |
+| Credential injection | Upstream HTTP | Resolve an authorized private credential for the current target and inject it at the required authentication/signing point |
+| Pick | Host selection | Resolve the current logical target to a compatible concrete host |
+| MCP profile/tool selection | Downstream HTTP in an HTTP host adapter | Establish profile/tool context and an invocation plan; session behavior is explicit |
+| MCP target adaptation | Upstream HTTP when dispatching to an HTTP server | Apply the selected server's protocol/binding requirements |
+| Guardrail or cache module | Declared per implementation | A logical-content check/cache may be downstream; an attempt-specific check/cache needs its own compatible upstream implementation |
+
+This table states intended Fig contracts, not existing host support. Jev and additional
+modules declare placements according to their actual implementation. A module is not
+implicitly movable just because another module for the same app supports that location.
+
+### Serializable composition and compatibility
+
+A versioned module descriptor declares supported placements and phases, provided and
+required typed handoffs, view dependencies, state lifetime, ordering constraints, and
+host capabilities such as body buffering, mutation, local response or async callouts.
+Its capabilities describe installed implementation code. A user composition references
+that descriptor; it cannot grant unsupported capabilities by changing a field.
+
+A composition spec selects instances, configuration references and ordering separately
+for downstream HTTP, host selection and upstream HTTP. For example, illustratively:
+
+```yaml
+composition:
+  downstream:
+    - instance: match
+      moduleRef: llm-match/v1
+      configRef: chat-selection
+    - instance: inspect
+      moduleRef: waf/v1
+      configRef: edge-policy
+  hostSelection:
+    moduleRef: pick/v1
+    configRef: provider-catalog
+  upstream:
+    - instance: adapt
+      moduleRef: llm-adapt/v1
+      configRef: provider-adapters
+    - instance: authenticate
+      moduleRef: credential-injector/v1
+      configRef: provider-credentials
+```
+
+The order above is not universally valid. Match may install a pending body-dependent
+selection at headers. WAF can follow it only if its required policy is available before
+inspection; it cannot wait for the very body inspection it is meant to govern. The
+compiler must prove the selected modules' phase dependencies or reject the composition.
+
+The compiler checks:
+
+1. Every module supports its assigned placement and requested callbacks/capabilities.
+2. Required typed handoffs have an unambiguous compatible producer before consumption,
+   including asynchronous availability and terminal/error paths.
+3. Explicit order respects mandatory dependencies and security gates. Missing producers,
+   conflicting writers, cycles and incompatible body ownership are errors.
+4. Selected targets have the required upstream adaptation and authentication modules.
+   No alternate route, fallback or local completion bypasses mandatory protection.
+5. Configuration dependencies can activate coherently across the installed instances.
+6. Request and response traversal are specified separately when needed. An upstream
+   response may require normalization before a downstream output guard can inspect it;
+   one list must not silently imply the same callback order in both directions.
+7. The host can realize the composition with its actual listener, cluster and module
+   extension facilities. Unsupported lowering fails explicitly.
+
+### Handoffs and per-attempt ownership
+
+Downstream modules publish typed request context, not credentials in client-visible
+headers. The host adapter carries that context to host selection and upstream modules
+through trusted request state. Exact transport is host-specific and remains to be
+qualified. Serialization of specs does not require serializing private request state.
+
+Every retry/fallback creates attempt state that identifies the captured plan, selected
+target and binding. Upstream Adapt and credential injection read that attempt state;
+they must not reuse the preceding attempt's provider, authentication or mutated body.
+Authentication ordering is declared: a signer that covers path/headers/body runs after
+those fields are finalized, and subsequent modules cannot mutate signed fields.
+
+A downstream WAF transaction normally lives for the client request/response stream;
+it is not recreated automatically for every upstream retry. If policy requires checking
+provider-specific transformed bytes on every attempt, that is a separate compatible
+upstream guardrail module, not relocation of the downstream-only WAF module. Required
+checks on each newly produced upstream result remain explicit before downstream release.
+
 ## 3. Specifications, views and request state
 
 These are three different objects:
@@ -494,6 +606,9 @@ Before selecting a wire protocol, executable examples must establish:
   cross-chunk behavior, and no claim of blocking after content has been released.
 - Cache key isolation, explicit invalidation, and local hits that preserve required
   access/protection gates; mutable cache entries remain outside immutable views.
+- Rejection of WAF in an upstream slot, missing/incompatible handoffs, invalid ordering,
+  and host placements that cannot be realized. Verify upstream adaptation and credentials
+  switch correctly on retry/fallback while downstream stream state retains its lifetime.
 - Missing versus pending facts, malformed bodies, bounds and ambiguous selection.
 - Invalid preparation leaves active state untouched; cross-view activation is coherent.
 - An update during body wait cannot mix generations.
