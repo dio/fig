@@ -316,6 +316,75 @@ A split makes its choice once when that node is entered and records it in reques
 execution state. Retrying the selected target does not resample the split. Fallback
 advances the enclosing chain according to its declared policy.
 
+### Envoy realization: one route, one dynamic cluster, many providers
+
+One candidate host realization keeps the Envoy route and dynamic cluster stable while
+application configuration supplies the logical provider or endpoint decision. Match
+can create a typed, resolve-once decision at headers; Pick waits asynchronously when
+the decision depends on body processing or a declared lookup. Trusted stream state
+correlates them. Completion supplies an Envoy-owned host; Envoy retains connection and
+pool ownership. This mechanism is described in
+[One Route, One Cluster, Many Providers](https://rockybars.com/notes/envoy/one-route-one-cluster-many-providers).
+
+For Fig, the proposed integration is:
+
+```text
+stable Envoy route → dynamic cluster
+                           |
+downstream Match → pending typed selection → async Pick → exact runtime host
+                                                        |
+                                             upstream Adapt / credentials
+                                                        |
+                                              Envoy-owned connection
+```
+
+Spec extraction remains bounded and declarative. A directory/network lookup, if
+needed, is an explicit asynchronous component with its own contract; it is not hidden
+IO inside a pure extractor. Async host selection also does not eliminate buffering:
+waiting for a complete JSON body still needs a declared body limit and deadline.
+
+The current Plum checkout provides useful implementation evidence:
+
+- `pipeline/match/match.go` installs `StreamPromise[Decision]` in stream state and
+  resolves it after extracting the body model.
+- `pipeline/pick/pick.go` subscribes in `ChooseHost`, schedules completion, and cancels
+  pending selection; its catalog supplies addresses and logical hostnames.
+- `pipeline/adapt/adapt.go` reads the resolved decision/handoff, rewrites authority
+  and model, and injects the configured provider credential.
+- `test/e2e/testdata/envoy.tmpl.yaml` configures a cluster-provided load balancer with
+  upstream adaptation and host-driven TLS settings.
+
+This is source evidence, not a Fig integration or a fresh live qualification. Local
+uncommitted Plum changes include live catalog refresh and remain outside Fig's commits.
+
+Fig must preserve or establish the following guarantees before adopting this path:
+
+1. Resolve once, cancel on teardown/deadline, and prevent late completion from reaching
+   an ended stream. The handoff is internal state, not a caller-controlled HTTP header.
+2. Bind logical endpoint identity to the exact registered host handle and catalog
+   generation. Do not recover identity from an IP/port string. Current Plum's
+   `resolveDecision` calls `FindHostByAddress`; that leaves an identity gap for shared
+   socket addresses and must not be described as exact logical-host selection.
+3. Retain hosts required by captured attempts and drain removed entries safely. Catalog
+   publication and native host-set updates need a coherent visibility/lifetime contract.
+4. Share a physical cluster only across bindings whose cluster-wide settings are
+   compatible, including protocol, transport security, trust/client identity, pooling,
+   discovery/health behavior and host-adapter capabilities. Different SNI/authority,
+   session resumption and shared-address identities require explicit qualification.
+   Otherwise lower to multiple clusters. One cluster is an option, not a universal rule.
+5. Do not infer that an upstream HTTP rewrite changes TLS parameters or connection-pool
+   identity already selected earlier. Hostname-driven TLS and late request-specific TLS
+   overrides are different capability paths and must be tested separately.
+6. Preserve one owner for retries and attempts. Fig's logical executor may lower its
+   plan into host-owned execution when the required callbacks support it. It must not
+   start a second forwarding/retry loop alongside Envoy's router. More advanced chain
+   progression and per-attempt handoffs need separate host-adapter proof.
+
+When the result is simply a hostname/port available before dispatch, evaluate Envoy's
+Dynamic Forward Proxy instead of requiring a custom catalog. Custom Pick is useful for
+application identities, externally owned placement and late decisions. Neither choice
+changes the serializable fact/selection contract.
+
 ## 8. Retry and fallback
 
 **Retry** attempts the same logical target again, possibly with another host.

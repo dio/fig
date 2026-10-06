@@ -263,6 +263,33 @@ clusters and callback APIs are host-adapter concerns. We must prove lowering and
 traffic behavior for each supported arrangement. Having an installation API or a module
 binary alone is not evidence that an arrangement executes correctly.
 
+## Decision 12: preserve request-aware host selection without duplicating Envoy
+
+**Choice:** evaluate a stable route/dynamic-cluster realization for compatible targets,
+using a typed asynchronous selection handoff between downstream Match and Pick.
+
+The [RockyBars mechanism](https://rockybars.com/notes/envoy/one-route-one-cluster-many-providers)
+separates application selection from Envoy routing and uses asynchronous host selection
+when the decision arrives late. Its prototype and TLS caveats are not proof of support
+in every Envoy version. Fig must qualify its pinned host/SDK combination.
+
+Current Plum contains the promise and asynchronous Pick path. It also currently resolves
+the catalog record back to an address and calls `FindHostByAddress`, so we must preserve
+the distinction between an implemented coordination mechanism and the stronger exact
+logical-host identity invariant. Live catalog refresh changes in the inspected working
+tree were not committed or tested as part of this review.
+
+This also refines the executor boundary: it owns logical plan semantics, not necessarily
+sockets, pools or an independent forwarding engine. Lowering into Envoy-owned execution
+is preferable where semantics can be preserved. Reject unsupported lowering instead of
+quietly adding a second retry loop or losing attempt-specific state.
+
+One physical cluster is a deployment optimization with compatibility conditions. Keep
+logical target identity distinct from cluster identity, and permit multiple clusters
+when transport or other cluster-wide settings differ. Dynamic Forward Proxy remains
+an alternative when DNS names adequately express selection. The host realization must
+follow the contracts, rather than changing the application model to fit one optimization.
+
 ## Decisions still required before implementation
 
 1. **Examples and phases:** exact fact sets, selection results and event traces for
