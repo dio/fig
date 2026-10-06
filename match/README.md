@@ -59,7 +59,9 @@ extractor; there are no background goroutines or asynchronous callouts.
 
 ## Deliberately absent
 
-No Envoy adapter, HTTP parser, shared buffer broker, source transport, publication
+The core has no Envoy dependency. A separate [native Envoy spike](../spike/envoy/README.md)
+now exercises this API with real traffic. The core still has no HTTP parser, shared
+buffer broker, source transport, publication
 manager, revocation, resource leases, authentication, WAF engine or plan executor.
 Generation strings are provenance labels only. Go references retain the prepared
 Match view, but external engines/resources still require the eventual runtime's lease

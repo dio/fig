@@ -16,3 +16,14 @@ placement and typed handoff requirements.
 An experimental [Go Match spike](match/README.md) now exercises preparation, typed
 fact extraction and selection. Run `go run ./cmd/match-spike`. The broader runtime
 remains a design proposal; APIs and schemas are not stable.
+
+## Native Envoy spike
+
+Run Match as two Envoy Go dynamic-module filters against a real backend:
+
+```sh
+python3 spike/envoy/verify.py
+```
+
+Requires Docker/Compose and Python 3. See the [native walkthrough and qualification
+results](spike/envoy/README.md), including manual startup and the pinned SDK limitation.
