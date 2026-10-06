@@ -365,3 +365,17 @@ resource budgets explicit, permits reuse within an owned request context, and ke
 HTTP buffering outside pure primitives. WAF retains its engine-specific parser;
 a shared JSON view cannot substitute for Coraza inspection semantics. Complete JSON
 is the first bounded slice; streaming protocols require their own lifecycle contract.
+
+## Why serialized handoffs first
+
+The pinned SDK exposes raw filter-state bytes, but its Go setter hides the ABI result.
+A bounded envelope with read-back can make failures explicit without sharing Go
+pointers. The SDK's SetData registry has producer-handle cleanup semantics and is
+not a qualified cross-library ownership mechanism. Typed Envoy state requires native
+ObjectFactory registration and does not automatically support Fig types. See the
+[survey](surveys/REQUEST_DATA.md) and [behavior proposal](REQUEST_DATA.md).
+
+Share small extracted facts and app outcomes first. Sharing an entire parsed Body
+document requires a stronger lifetime contract; this is distinct from transporting
+a model fact. Jev's existing HTTP JSON API can use the current body phases while
+retaining its own semantic request validation.

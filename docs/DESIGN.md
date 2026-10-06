@@ -730,3 +730,11 @@ typed fact extraction and app decisions. Complete JSON is the first proposed pro
 The first implementation provides a bounded immutable JSON view shared by facts
 inside one native filter. Cross-app sharing and bundle-level body references remain
 proposed; the contract also defines forwarding, limits and cancellation.
+
+## Request-local module handoffs
+
+The [behavior design](REQUEST_DATA.md), informed by a [source survey](surveys/REQUEST_DATA.md),
+proposes bounded typed envelopes in Envoy filter state for cross-filter facts and
+app outcomes. Ordered modules retain their own Match phases; there is no implicit
+global Match pass. Parsed Go objects remain local until a separate ownership bridge
+is qualified. This is a proposal, not an implemented carrier.

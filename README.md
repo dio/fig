@@ -8,6 +8,7 @@ API access and WAF inspection.
 - [Design](docs/DESIGN.md): responsibilities, semantics, invariants and examples.
 - [Configuration draft](docs/CONFIG.md): consumed bundles, primitive/app boundaries, and next actions.
 - [Match primitive](docs/primitives/MATCH.md): specification, preparation, evaluation and host boundaries.
+- [Request data](docs/REQUEST_DATA.md): proposed typed handoffs and [source survey](docs/surveys/REQUEST_DATA.md).
 - [Rationale](docs/RATIONALE.md): source findings, tradeoffs and open decisions.
 - [BoE Coraza WAF case study](docs/case-studies/BOE-CORAZA-WAF.md): reuse boundaries, migration scope and effort estimate.
 
