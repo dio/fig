@@ -1,0 +1,336 @@
+# Fig design
+
+Status: initial proposal, 2026-10-06. This repository contains concepts, not an
+implemented runtime, stable schema, or interoperability claim. YAML below illustrates
+semantics; it is not a parser contract. [RATIONALE.md](RATIONALE.md) records why these
+boundaries exist and which decisions remain open.
+
+## 1. Developer objective
+
+Describe how a gateway extracts request facts, selects application behavior, and
+executes upstream attempts using serializable specifications. The same foundation
+should support an LLM proxy, API gateway, and WAF composition without making a model
+name or provider kind a universal routing primitive.
+
+Operators must be able to deliver configuration independently of Envoy topology,
+observe which configuration is accepted and active, update it safely, and explicitly
+retire it. Request execution must remain understandable when configuration changes,
+authority expires, or a backend fails.
+
+## 2. Ownership
+
+| Component | Owns |
+|---|---|
+| Authoring adapter | Translate a user-facing API into validated Fig specifications |
+| Compiler | Type checking, dependency checking, indexes and executable preparation |
+| View runtime | Publication, capture, retirement and lifetime of prepared views |
+| Match | Extract declared facts and select application context or a routing plan |
+| Policy stage | Application-specific inspection, authentication, authorization or quota |
+| Executor | Routing-plan traversal, attempt budgets, retry, fallback and cancellation |
+| Pick | Resolve a logical target to a compatible concrete host |
+| Adapt | Construct the target-specific request and transform its response |
+| Distribution adapter | Authenticate delivery and transport versioned resources |
+| Host adapter | Bind execution to Envoy or another host's events and resource handles |
+
+Management owns desired state and authorization to publish. Delivery does not create
+that authority. A selected route or accepted configuration does not itself authorize
+an upstream request. Private credential custody stays outside ordinary routing specs.
+
+Gateway API, AI-oriented APIs, files and other authoring surfaces can be adapters.
+Fig does not require a new public CRD. An internal serializable execution contract
+still needs precise semantics even when the user-facing API is an existing standard.
+
+## 3. Specifications, views and request state
+
+These are three different objects:
+
+- **Specification:** serializable, versioned declarative data describing behavior.
+- **Prepared view:** a validated runtime projection, including compiled matchers,
+  indexes or engine references. Published contents are immutable.
+- **Request state:** facts, a captured configuration generation, selection results,
+  policy transactions, attempt history and cancellation/deadline state.
+
+```text
+embedded / file / remote resource
+             |
+       decode and validate
+             |
+       compile and prepare
+             |
+       publish a generation
+             |
+       capture for a request
+             |
+       execute and release
+```
+
+Compilation must not change active state. Failed preparation preserves the previous
+active generation, subject to its existing expiry or retirement rules. Successful
+publication makes a complete prepared generation available to new captures.
+Prepared engine objects may have internal synchronization; their configuration is
+immutable, and mutable inspection state belongs to individual request transactions.
+
+Resource identity is `(scope, type, name)`. Schema version identifies how to interpret
+payloads. Resource version identifies content or a revision, with an equality contract;
+it must not silently imply numeric ordering. Generation identity identifies a coherent
+set of prepared resources. Delivery response identifiers are a separate concept.
+
+## 4. Serializable fact extraction
+
+Each fact declaration specifies:
+
+1. Source and earliest availability phase.
+2. A registered, versioned extractor and its serializable arguments.
+3. Result type and explicit normalization.
+4. Input bounds, parsing limits and any buffering requirement.
+5. Missing, malformed and unsupported-input behavior.
+6. Sensitivity and permitted use in observations.
+
+Illustrative declaration:
+
+```yaml
+facts:
+  model:
+    source: request.body.json
+    extractor: json-pointer/v1
+    pointer: /model
+    valueType: string
+    availableAt: request-body-complete
+    maxBodyBytes: 65536
+    onMissing: reject
+    onInvalid: reject
+```
+
+Fact states include **pending**, **present**, **missing**, and **invalid**. Pending
+means its phase has not completed; it must not accidentally take the missing/default
+branch. A declaration can apply an explicit error policy after extraction completes.
+
+Header multiplicity, case handling, URL/path normalization, JSON duplicate keys,
+content type, compression, empty values and coercions require defined extractor
+semantics. An extractor must not perform implicit network IO or execute arbitrary
+code supplied in a document. Sensitive extracted values are not logged by default.
+
+The initial extractor set should be small: method, authority/host, path, a named
+header, and a bounded JSON pointer. Query extraction can follow with explicit decoding
+and repeated-key rules. Selection randomness is supplied by the executor, not hidden
+inside an ordinary fact extractor.
+
+## 5. Serializable selection
+
+A selection specification declares predicates over typed facts and produces typed
+values or references. It also defines precedence, tie behavior and no-match behavior.
+
+```yaml
+selection:
+  strategy: first-match
+  rules:
+    - when:
+        equals: {fact: model, value: support-chat}
+      result:
+        routingPlanRef: support
+  onNoMatch: reject
+```
+
+Start with explicit ordered first-match rules and basic typed comparisons/boolean
+composition. Do not introduce a general expression language until concrete use cases
+require it. A compiler rejects unknown fact references and incompatible comparisons.
+
+The selection result can identify deployment, route/operation, destination binding,
+policy references and application-owned typed attributes. LLM model/provider details
+belong to an LLM-specific binding or result, rather than mandatory universal fields.
+Selecting a policy reference does not run that policy or prove its decision succeeded.
+
+Selection can occur at more than one phase. Early selection establishes deployment
+and applicable inspection policy; later body-dependent selection can complete the
+operation or destination. Every stage declares which facts it requires.
+
+## 6. Phase and dependency validation
+
+The compiler must reject a dependency cycle or a fact required before it can exist.
+In particular:
+
+- A WAF policy needed to inspect the request body cannot depend on facts produced only
+  after that inspection. Select an enclosing policy early, or explicitly buffer and
+  choose a policy before inspection begins.
+- Authorization may establish trusted identity used by later selection; a claimed
+  header cannot substitute for that trusted fact.
+- Response facts cannot affect an already dispatched initial request. They may inform
+  outcome classification for a subsequent permitted attempt.
+- Any body wait consumes the request deadline and obeys declared memory limits.
+
+There is no universal ordering of every authentication and WAF operation. The chosen
+pipeline must declare dependencies and protection boundaries. For the APIx/Citrus
+case, distinguish early identity establishment from APIM access/quota admission.
+
+## 7. Routing plans: Target, Split and Chain
+
+Match selects a routing plan. The executor traverses it. Pick resolves the current
+attempt's logical target to a concrete host; Adapt supplies that target's protocol,
+model mapping, headers and scoped credential use.
+
+| Node | Meaning |
+|---|---|
+| Target | One logical destination and its binding/adaptation references |
+| Split | Select one child according to declared weights and selection policy |
+| Chain | Try children in order, advancing only on configured outcomes |
+
+A chain here is an upstream fallback sequence. An ordered HTTP filter pipeline is a
+separate composition and must not be represented as a fallback chain. WAF is a policy
+stage, not an alternate upstream destination.
+
+Plans may nest splits and chains. Preparation validates references, rejects cycles,
+and bounds depth, node count and fan-out. Weights must have a documented numeric
+range and at least one eligible positive-weight child. Unavailable branches do not
+silently redistribute traffic; that behavior requires an explicit policy.
+
+A split makes its choice once when that node is entered and records it in request
+execution state. Retrying the selected target does not resample the split. Fallback
+advances the enclosing chain according to its declared policy.
+
+## 8. Retry and fallback
+
+**Retry** attempts the same logical target again, possibly with another host.
+**Fallback** advances to another child of a chain. Both consume one request-wide
+attempt budget and deadline. A target budget includes its initial attempt.
+
+```yaml
+execution:
+  maxAttempts: 4
+  timeout: 10s
+plan:
+  chain:
+    advanceOn: [connect-failure, unavailable]
+    steps:
+      - target: primary
+        retry:
+          maxAttempts: 2
+          on: [connect-failure, reset-before-headers]
+          perAttemptTimeout: 2s
+          backoff: {initial: 50ms, max: 250ms, jitter: true}
+      - target: fallback
+        retry:
+          maxAttempts: 2
+          on: [connect-failure]
+```
+
+These outcome names need precise host-adapter definitions before implementation.
+A reset before response headers does not prove that the upstream performed no work.
+The example additionally requires an explicit operation-level replay permission;
+otherwise ambiguous failures must not trigger another attempt.
+
+Execution order is: attempt, classify outcome, retry locally if eligible and budget
+remains, otherwise advance a chain if its conditions permit, otherwise finish.
+A terminal local denial, client cancellation, or invalid authority is not a backend
+failure that fallback may evade. Nested plans cannot reset global budgets.
+
+Required invariants:
+
+- **Replay permission:** mutation safety and idempotency are explicit. Idempotency keys
+  only help when the destination honors them; cross-provider equivalence is not assumed.
+- **Bounded original input:** preserve replayable request input within a declared limit.
+  Each attempt is adapted from that input, not from another attempt's mutated bytes.
+- **Response commitment:** no transparent retry/fallback after response headers or body
+  are committed to the downstream client. Streaming sessions cannot silently restart.
+- **Deadlines:** the effective timeout is the earliest caller, policy, authority or
+  per-attempt deadline. Backoff and configuration-dependent waits consume time.
+- **Cancellation:** stop timers and active attempts, then release request-owned state.
+- **Authority:** recheck applicable expiry, revocation and private credential validity
+  at each protected dispatch. Capturing a generation cannot bypass these checks.
+- **One retry owner:** the host adapter must prevent independent Envoy and Fig retry
+  policies from multiplying attempts. Host-level connection retry behavior must also
+  be accounted for in the observable budget contract.
+- **Accounting:** distinguish logical-request quota from attempt/provider usage. An
+  uncertain charged attempt is not automatically refunded or repeated.
+
+Initial scope is sequential attempts. Hedging, parallel branches and stream resumption
+are separate designs.
+
+## 9. WAF and API access as concrete consumers
+
+| Consumer | Prepared material | Request-owned state | Replacement/outage concern |
+|---|---|---|---|
+| LLM routing | Model selectors, plans, target bindings | Selected model and attempt state | Keep related target/adaptation references coherent |
+| API access | Route indexes, authentication and entitlement material | Captured decision, deadlines, quota evidence | Recheck authority before dispatch; fence invalidated continuations |
+| WAF | Captured rules/CRS and compiled policy engines | Inspection transaction and captured mode | Preserve the selected engine through request/response processing |
+
+WAF policy content and runtime enforcement mode are distinct resources. A mode
+selection must reference the exact prepared policy revision it applies to. Detection-only
+still performs inspection. Cold/unavailable required protection must not be bypassed.
+
+A temporary transport outage, malformed replacement, stale authority, explicit resource
+removal and application shutdown are different events. Each resource contract must
+state whether existing requests may finish and whether new requests may be admitted.
+There is no universal "retain forever" or "expire after three seconds" view policy.
+
+Request lifetime retention needs an explicit release operation or equivalent ownership
+mechanism so old engines, files and host handles can be reclaimed once unused. Retained
+versions and long-lived requests need bounds.
+
+## 10. Publication and consistency
+
+Independent resources can be delivered independently. Coupled resources require a
+coherent activation boundary: stage all required versions, validate their references,
+and publish one generation. Each request captures that generation before relevant
+asynchronous waits. A captured generation preserves interpretation; an authority gate
+can still invalidate its permission to dispatch.
+
+A possible serializable generation manifest references exact `(type, name, version)`
+dependencies. Its final shape remains open. The runtime must retain referenced staged
+versions until activation or bounded rejection, rather than keeping only the newest
+resource and losing a version an activation needs.
+
+Removal must be explicit. An omitted item in a delta is not deletion. Removing a
+required resource cannot silently convert protected traffic into unprotected traffic.
+Replacement and rollback must not resurrect retired identities or revoked authority.
+
+## 11. Delivery boundary
+
+Embedded bytes, mounted files, polling and remote streams feed the same validation and
+preparation path. A local snapshot adapter can supply a complete resource set; a remote
+adapter can supply named updates and removals. Delivery granularity does not determine
+activation granularity.
+
+An xDS-like subscription model is a candidate: resource type plus names, versions,
+removals, ACK/NACK and reconnect state. Actual Delta ADS versus a smaller protocol is
+**not decided**. Neither choice makes EG serve custom Fig resources automatically.
+A streamed JSON document is also not automatically an xDS resource or a JSON patch.
+
+Keep EG topology/filter bootstrap separate from high-churn application resources.
+Kona supplies evidence for a separate mTLS channel, currently via HTTPS polling; it
+has not established a streaming API or implementation for Fig.
+
+Delivery authentication must authorize scope, type and name. A user-supplied node ID
+or resource name is not an authenticated identity. TLS issuance, trust distribution,
+application publication authority and resource activation remain distinct concerns.
+
+## 12. Observation and verification
+
+Report separately: desired, delivered, accepted/prepared, active, and verified by
+traffic. Acceptance is not proof of activation. Record resource/generation references,
+selection identifiers, target and attempt number, outcome, and retry/fallback reason.
+Do not include raw credentials, request bodies or sensitive extracted facts by default.
+
+Before selecting a wire protocol, executable examples must establish:
+
+- LLM body selection, HTTP operation selection, and early WAF policy selection.
+- Missing versus pending facts, malformed bodies, bounds and ambiguous selection.
+- Invalid preparation leaves active state untouched; cross-view activation is coherent.
+- An update during body wait cannot mix generations.
+- WAF request/response processing retains its selected engine; mode binds to its policy.
+- Revocation or stale authority prevents dispatch even with a captured view.
+- Split choice stays fixed across retry; fallback and retries share global budgets.
+- Non-replayable requests, committed responses and cancellation never retry.
+- Explicit removal fails required protection closed and eventually releases resources.
+- Real host tests prove backend receipt/non-receipt as well as client response.
+
+## 13. First design slice and exclusions
+
+First specify three examples and their expected event traces: LLM model routing,
+API operation selection, and WAF policy/mode selection. Then define typed extraction,
+selection results, prepared-view lifetime and sequential plan execution. Only then
+choose transport schemas and a host adapter.
+
+This proposal does not implement a general workflow engine, arbitrary uploaded code,
+a new management permission system, a universal policy payload, or production PKI.
+It does not promise compatibility with current Plum, APIx, Citrus, xDS or Gateway API
+until the corresponding adapters and behavior have been qualified.
