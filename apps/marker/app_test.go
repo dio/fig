@@ -13,7 +13,7 @@ var entry = bundle.Ref{Type: PipelineType, Name: "mark", Version: "1"}
 
 func fixture(t *testing.T) []byte {
 	t.Helper()
-	data, err := os.ReadFile("../../../../examples/config/marker.json")
+	data, err := os.ReadFile("../../examples/config/marker.json")
 	if err != nil {
 		t.Fatal(err)
 	}

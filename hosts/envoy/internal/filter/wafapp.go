@@ -1,12 +1,12 @@
-package main
+package filter
 
 import (
 	"encoding/json"
 	"strconv"
 	"strings"
 
-	wafapp "github.com/dio/fig/spike/envoy/apps/waf"
-	"github.com/dio/fig/spike/envoy/apps/waf/inspect"
+	wafapp "github.com/dio/fig/apps/waf"
+	"github.com/dio/fig/apps/waf/inspect"
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 )
 

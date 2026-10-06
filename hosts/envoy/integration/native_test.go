@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/dio/fig/bundle"
-	configrender "github.com/dio/fig/spike/envoy/bootstrap"
+	configrender "github.com/dio/fig/hosts/envoy/integration/bootstrap"
 	"github.com/dio/kona/envoytest"
 )
 
@@ -43,7 +43,7 @@ func TestNativeMatch(t *testing.T) {
 	}))
 	t.Cleanup(backend.Close)
 	_, port, _ := net.SplitHostPort(strings.TrimPrefix(backend.URL, "http://"))
-	bundleData, err := os.ReadFile("../../examples/config/waf.json")
+	bundleData, err := os.ReadFile("../../../examples/config/waf.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestNativeRejectsInvalidBundle(t *testing.T) {
 	if os.Getenv("ENVOY_BIN") == "" {
 		t.Skip("set ENVOY_BIN and FIG_MODULE")
 	}
-	data, err := os.ReadFile("../../examples/config/waf.json")
+	data, err := os.ReadFile("../../../examples/config/waf.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +284,7 @@ func TestNativeRejectsInvalidBundle(t *testing.T) {
 
 func renderApps(t *testing.T, wafData []byte) ([]byte, error) {
 	t.Helper()
-	markerData, err := os.ReadFile("../../examples/config/marker.json")
+	markerData, err := os.ReadFile("../../../examples/config/marker.json")
 	if err != nil {
 		return nil, err
 	}

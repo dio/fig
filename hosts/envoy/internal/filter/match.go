@@ -1,4 +1,4 @@
-package main
+package filter
 
 import (
 	"bytes"
@@ -13,7 +13,6 @@ import (
 	"github.com/dio/fig/body"
 	"github.com/dio/fig/match"
 	sdk "github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go"
-	_ "github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/abi"
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 )
 
@@ -38,7 +37,8 @@ type factory struct {
 	prepared *match.Prepared[selection]
 }
 
-func init() {
+// Register installs the factories supported by this host adapter.
+func Register() {
 	sdk.RegisterHttpFilterConfigFactories(map[string]shared.HttpFilterConfigFactory{
 		"fig-match": &configFactory{}, "fig-waf-app": &wafAppConfigFactory{}, "fig-marker-app": &markerAppConfigFactory{},
 	})
@@ -279,4 +279,3 @@ func (f *filter) OnStreamComplete() {
 	f.body = nil
 	f.fields = nil
 }
-func main() {}

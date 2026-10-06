@@ -6,13 +6,13 @@ import (
 	"os"
 
 	"github.com/dio/fig/bundle"
-	"github.com/dio/fig/spike/envoy/bootstrap"
+	"github.com/dio/fig/hosts/envoy/integration/bootstrap"
 )
 
 func main() {
 	waf := flag.String("bundle", "../../examples/config/waf.json", "WAF bundle JSON")
 	marker := flag.String("marker", "../../examples/config/marker.json", "Marker bundle JSON")
-	template := flag.String("template", "envoy.json", "Envoy template")
+	template := flag.String("template", "integration/envoy.json", "Envoy template")
 	output := flag.String("out", ".bin/envoy.json", "rendered bootstrap")
 	flag.Parse()
 	read := func(path string) []byte {

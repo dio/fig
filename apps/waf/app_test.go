@@ -5,13 +5,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/dio/fig/apps/waf/inspect"
 	"github.com/dio/fig/bundle"
-	"github.com/dio/fig/spike/envoy/apps/waf/inspect"
 )
 
 func example(t *testing.T) map[string]any {
 	t.Helper()
-	data, err := os.ReadFile("../../../../examples/config/waf.json")
+	data, err := os.ReadFile("../../examples/config/waf.json")
 	if err != nil {
 		t.Fatal(err)
 	}

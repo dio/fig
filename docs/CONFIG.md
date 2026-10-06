@@ -15,9 +15,9 @@ application registry switch inside the bundle decoder.
 |---|---|---|
 | `bundle` | Bounded strict decoding, scope/generation envelope, exact references, resource ownership | Match semantics, Coraza, Envoy callbacks |
 | `match` | Extractors, typed predicates, ordered selection, prepared views and evaluation | WAF policy fields, bundle transport, HTTP replies |
-| `spike/envoy/apps/waf` | WAF schema validation, Match output contract, policy resolution, supported composition, outcome mappings | Generic publication infrastructure, Envoy handles |
+| `apps/waf` | WAF schema validation, Match output contract, policy resolution, supported composition, outcome mappings | Generic publication infrastructure, Envoy handles |
 | `apps/waf/inspect` | Header-rule validation, Coraza engine preparation and transaction lifecycle | Bundle references, Match, Envoy, HTTP response mapping |
-| `spike/envoy/module/wafapp.go` | Envoy inputs, per-stream result, metadata and local replies | Rule compilation, policy selection algorithms, generic bundle validation |
+| `hosts/envoy/internal/filter/wafapp.go` | Envoy inputs, per-stream result, metadata and local replies | Rule compilation, policy selection algorithms, generic bundle validation |
 | `bootstrap` | Embed supplied JSON into an Envoy fixture | Validate application semantics or prepare engines |
 
 The WAF app uses Match to select a policy reference and resolves it to a prepared
@@ -26,9 +26,9 @@ logical destination to a host for an app that dispatches upstream. Apps need not
 every primitive. Future LLM/MCP apps may compose Match, Pick and Adapt without putting
 their fields into either Match or WAF.
 
-The app currently lives in the spike's nested Go module to keep Coraza and native
-SDK dependencies out of Fig's core module. The app packages themselves import no
-Envoy SDK. This is deliberate experimental placement, not a stable public app API.
+Apps live in the `apps` Go module, keeping Coraza out of Fig's core module.
+The `hosts/envoy` module owns the SDK and native integration harness. App packages
+import no Envoy SDK. These boundaries are implemented; the APIs remain experimental.
 
 ## Authoring and envelope
 

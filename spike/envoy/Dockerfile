@@ -6,12 +6,13 @@ COPY match ./match
 COPY matchconfig ./matchconfig
 COPY bundle ./bundle
 COPY examples/config ./examples/config
-COPY spike/envoy ./spike/envoy
-WORKDIR /src/spike/envoy
+COPY apps ./apps
+COPY hosts/envoy ./hosts/envoy
+WORKDIR /src/hosts/envoy
 RUN go mod download
-RUN CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -o /out/libfig_match.so ./module
-RUN CGO_ENABLED=0 go build -trimpath -o /out/fig-echo ./echo
-RUN go run ./cmd/bootstrap -out /out/envoy.json
+RUN CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -o /out/libfig_match.so ./cmd/fig-envoy
+RUN CGO_ENABLED=0 go build -trimpath -o /out/fig-echo ./integration/echo
+RUN go run ./integration/cmd/bootstrap -out /out/envoy.json
 FROM envoyproxy/envoy:v1.38.0 AS proxy
 COPY --from=build /out/libfig_match.so /usr/local/lib/libfig_match.so
 COPY --from=build /out/envoy.json /etc/envoy/envoy.json

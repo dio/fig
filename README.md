@@ -30,7 +30,7 @@ make native-test ENVOY_BIN="$HOME/.tetrate/bin/envoy"
 This builds the host-native module and starts one Envoy child process from Go tests,
 with an in-process HTTP backend. Fig imports the published, pinned `dio/kona/envoytest`
 runner; no sibling checkout is required. See [setup, binary download, and the native
-workflow](spike/envoy/README.md#direct-native-tests-no-docker).
+workflow](spike/envoy/README.md#native-development-loop-no-docker).
 
 The earlier Docker Compose lane remains available:
 
@@ -43,9 +43,42 @@ native/Docker pins and SDK limitation.
 
 The native fixture now includes a minimal Coraza WAF stage: selected policy → header
 inspection → continue/block/error, including detection-only mode. See the
-[WAF cases](spike/envoy/README.md#waf-selection-and-next-action-spike).
+[WAF cases](spike/envoy/README.md#bundle-and-execution).
 
 The WAF app now consumes [the bundle](examples/config/waf.json) during Envoy config
 creation. `bundle` owns decoding/references, `match` remains a primitive, and
-`spike/envoy/apps/waf` owns app composition and policy semantics. Invalid dependencies
+`apps/waf` owns app composition and policy semantics. Invalid dependencies
 are rejected before activation.
+
+## Repository layout
+
+Current execution focus: one local native Envoy. EG, Kubernetes and remote delivery
+remain design topics and are not required by the development loop.
+
+```text
+body/                       bounded immutable JSON views
+bundle/                     strict envelope decoding and exact references
+match/                      fact extraction and selection
+matchconfig/                serializable Match resource preparation
+apps/                       separate Go module: app semantics and dependencies
+  marker/                   Match → diagnostic marker
+  waf/                      Match → policy → Coraza inspection
+hosts/envoy/                separate Go module: Envoy SDK and host integration
+  cmd/fig-envoy/             c-shared library entry point
+  internal/filter/           callbacks and registered factories
+  integration/              native traffic tests, bootstrap and test backend
+examples/config/            consumed app bundles
+spike/envoy/                walkthrough and fixture launchers
+```
+
+Dependencies flow from host → apps → core. Core has no third-party dependencies;
+apps have no Envoy SDK dependency. Concrete factory registration stays in the host.
+The nested modules isolate dependencies, not runtime processes. They use relative
+replacements within this checkout; no sibling repository or Go workspace is needed.
+Moving the experimental packages changes their Go import paths; configuration type
+names and registered Envoy factory names are unchanged.
+
+`make test` runs tests across all three modules (native traffic tests skip without
+their environment). `make native-test ENVOY_BIN=/path/to/envoy` additionally builds
+the matching shared library and runs real local Envoy traffic. Running `go test ./...`
+alone at the repository root covers only the core module.

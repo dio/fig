@@ -18,14 +18,14 @@ these boundaries and the deliberately limited supported pipeline.
 ## Native development loop (no Docker)
 
 Requirements: Go 1.27.1, a cgo compiler (Xcode Command Line Tools on macOS), and a
-matching native Envoy. This lane pins the `0a804c57` / 1.40.0-dev SDK using `native.mod`.
+matching native Envoy. This lane pins the `0a804c57` / 1.40.0-dev SDK using `hosts/envoy/native.mod`.
 On macOS arm64:
 
 ```sh
 make native-test ENVOY_BIN="$HOME/.tetrate/bin/envoy"
 ```
 
-The root target runs bundle decoder tests, builds the host-native shared library,
+The root target runs core and app tests, builds the host-native shared library,
 and runs app/compiler and native traffic tests. `dio/kona/envoytest` starts Envoy and
 owns readiness/logging/cleanup. The backend is an in-process Go `httptest.Server`.
 No sibling Kona checkout, Compose, Docker or Kubernetes is required.
@@ -88,26 +88,26 @@ No provider routing, actual LLM execution, full WAF/CRS or live bundle updates a
 - Root `matchconfig`: shared typed header-resource preparation.
 - `apps/waf`: app compiler and execution, including typed Match output and action mappings.
 - `apps/waf/inspect`: policy preparation and Coraza inspection; no bundle/Match/Envoy imports.
-- `module/wafapp.go`: Envoy callbacks; adapts owned inputs and applies app outcomes.
-- `module/main.go`: legacy independent body Match adapter and factory registration.
-- `bootstrap`: embeds a supplied bundle into the bootstrap template, without compiling it.
-- `envoy.json`: template with separate WAF and Marker bundle placeholders.
-- `cmd/bootstrap`: materializes that template for manual/Docker use.
-- `native_test.go`: real traffic and native invalid-configuration assertions.
+- `hosts/envoy/internal/filter/wafapp.go`: Envoy callbacks; adapts owned inputs and applies app outcomes.
+- `hosts/envoy/internal/filter/match.go`: legacy independent body Match adapter and factory registration.
+- `hosts/envoy/integration/bootstrap`: embeds a supplied bundle into the bootstrap template, without compiling it.
+- `hosts/envoy/integration/envoy.json`: template with separate WAF and Marker bundle placeholders.
+- `hosts/envoy/integration/cmd/bootstrap`: materializes that template for manual/Docker use.
+- `hosts/envoy/integration/native_test.go`: real traffic and native invalid-configuration assertions.
 
 To materialize the bootstrap manually:
 
 ```sh
-cd spike/envoy
+cd hosts/envoy
 mkdir -p .bin
-go run ./cmd/bootstrap -out .bin/envoy.json
+go run ./integration/cmd/bootstrap -out .bin/envoy.json
 ```
 
 This renders the canonical bundle; the template's module path and backend still refer
 to the Docker fixture. Use the native test harness for automatic local paths and ports.
 The renderer is not a compiler: Envoy must still load and prepare the app config.
 
-## Optional Docker lane
+## Retained Docker fixture (outside current focus)
 
 The Dockerfile builds the library for Linux and runs the renderer to embed the same
 canonical bundle into `/etc/envoy/envoy.json`. This lane retains Envoy 1.38 and the
@@ -176,3 +176,13 @@ one on successful body evaluation and is stripped from incoming requests.
 Native tests cover two-fact sharing, Unicode/node rejection, no backend receipt on
 errors and unchanged forwarded bytes. The bundle-level Body resource and cross-app
 sharing described in [the contract](../../docs/primitives/BODY.md) remain unimplemented.
+
+## Code ownership
+
+This directory contains launchers and the walkthrough, not reusable Go packages.
+The local development loop is owned by `hosts/envoy/Makefile`. The Makefile here
+forwards `native-build` and `native-test` for compatibility. Host callbacks live in
+`hosts/envoy/internal/filter`; `cmd/fig-envoy` is just the native library entry point.
+Apps live in the separate `apps` module. See the root README for all module boundaries.
+Current qualification is local native Envoy only; the retained Docker fixture was
+updated for source paths but was not run during this reorganization.

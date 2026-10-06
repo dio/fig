@@ -5,10 +5,10 @@ package waf
 import (
 	"fmt"
 
+	"github.com/dio/fig/apps/waf/inspect"
 	"github.com/dio/fig/bundle"
 	"github.com/dio/fig/match"
 	"github.com/dio/fig/matchconfig"
-	"github.com/dio/fig/spike/envoy/apps/waf/inspect"
 )
 
 const (

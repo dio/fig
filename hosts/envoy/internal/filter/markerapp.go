@@ -1,10 +1,10 @@
-package main
+package filter
 
 import (
 	"strings"
 
+	"github.com/dio/fig/apps/marker"
 	"github.com/dio/fig/match"
-	"github.com/dio/fig/spike/envoy/apps/marker"
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 )
 

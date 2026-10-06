@@ -1,12 +1,10 @@
-module github.com/dio/fig/spike/envoy
+module github.com/dio/fig/apps
 
 go 1.27.1
 
 require (
 	github.com/corazawaf/coraza/v3 v3.7.0
 	github.com/dio/fig v0.0.0
-	github.com/dio/kona v0.0.0-20261006030050-dc14e5541e93
-	github.com/envoyproxy/envoy/source/extensions/dynamic_modules v0.0.0-20260423231439-f1dd21b16c24
 )
 
 require (
@@ -30,4 +28,4 @@ require (
 	rsc.io/binaryregexp v0.2.0 // indirect
 )
 
-replace github.com/dio/fig => ../..
+replace github.com/dio/fig => ..
