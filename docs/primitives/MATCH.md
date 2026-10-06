@@ -275,3 +275,10 @@ Deferred: general expression languages, regex, lazy predicate-dependent extracti
 body streaming queries, arbitrary computed outputs, transport protocols, plan execution
 and a universal scheduler. The main risks are host buffer ownership, phase dependency
 cycles and lifetime mistakes; the pure predicate evaluator is the smaller part.
+
+## Body parsing boundary
+
+See [Body input and parsing](BODY.md) for the proposed shared parsed view and
+versioned extractor migration. Current `json-pointer/v1` parses independently per
+fact. A future view-based extractor reads an immutable document; Match continues
+to own typed facts and selection, while the host owns collection and cancellation.

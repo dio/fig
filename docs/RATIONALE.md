@@ -355,3 +355,13 @@ raw SecLang field. This makes phase and capability restrictions enforceable with
 trying to safely recognize all directives in an unrestricted policy language. Full
 SecLang/CRS needs its own preparation contract. Unsupported composition fails rather
 than being partially lowered. See [the configuration contract](CONFIG.md).
+
+## Why separate body parsing from Match
+
+The current JSON-pointer extractor combines document parsing and fact extraction.
+That repeats parsing for multiple facts and hides buffering requirements inside a
+selector. The [Body contract](primitives/BODY.md) makes the input representation and
+resource budgets explicit, permits reuse within an owned request context, and keeps
+HTTP buffering outside pure primitives. WAF retains its engine-specific parser;
+a shared JSON view cannot substitute for Coraza inspection semantics. Complete JSON
+is the first bounded slice; streaming protocols require their own lifecycle contract.

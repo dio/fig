@@ -196,3 +196,7 @@ The native fixture executes WAF → Marker → legacy body Match. A WAF block pr
 Marker execution. Host-specific app attachment belongs above these app pipelines;
 see [hostname placement and activation](ACTIVATION.md) for the proposed Lime adapter.
 That placement design is not implemented by the current fixed-chain fixture.
+
+Body-aware resource composition is specified separately in the proposed
+[Body contract](primitives/BODY.md). Its illustrative resource and extractor are not
+yet accepted by the bundle app compilers or structural schema.

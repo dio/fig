@@ -31,6 +31,7 @@ authority expires, or a backend fails.
 | Authoring adapter | Translate a user-facing API into validated Fig specifications |
 | Compiler | Type checking, dependency checking, indexes and executable preparation |
 | View runtime | Publication, capture, retirement and lifetime of prepared views |
+| Body | Bounded parsing of an explicit input representation; immutable document access |
 | Match | Extract declared facts and select application context or a routing plan |
 | Component stage | Typed behavior such as inspection, decision evaluation, caching, authentication or quota |
 | Executor | Routing/invocation-plan traversal, attempt budgets, retry, fallback and cancellation |
@@ -721,3 +722,10 @@ until the corresponding adapters and behavior have been qualified.
 See [Hostname placement and app activation](ACTIVATION.md) for the proposed Lime
 adapter: exact-host placements select ordered app instances above app-owned pipelines.
 Marker is the second implemented app demonstrating a distinct typed Match result.
+
+## Body-dependent applications
+
+The [Body contract](primitives/BODY.md) separates host collection, pure parsing,
+typed fact extraction and app decisions. Complete JSON is the first proposed profile.
+It also defines sharing, forwarding, limits and cancellation; these shared-view
+capabilities are not yet implemented by the existing per-extractor JSON spike.
