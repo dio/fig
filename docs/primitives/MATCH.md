@@ -1,7 +1,9 @@
 # Match primitive
 
 Status: proposed first primitive, 2026-10-06. This is a contract and implementation
-slice, not an implemented API or stable wire schema. Examples illustrate semantics.
+slice, not a stable wire schema. Examples illustrate semantics. A subsequent
+[Go spike](../../match/README.md) implements a bounded subset; its README records
+the differences and missing runtime/host integration.
 
 ## 1. Responsibility
 

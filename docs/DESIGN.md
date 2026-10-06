@@ -1,7 +1,8 @@
 # Fig design
 
-Status: initial proposal, 2026-10-06. This repository contains concepts, not an
-implemented runtime, stable schema, or interoperability claim. YAML below illustrates
+Status: initial proposal, 2026-10-06. The repository includes an experimental
+[Match core](../match/README.md), but no integrated runtime, stable schema, or
+interoperability claim. YAML below illustrates
 semantics; it is not a parser contract. [RATIONALE.md](RATIONALE.md) records why these
 boundaries exist and which decisions remain open.
 

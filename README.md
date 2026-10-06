@@ -13,4 +13,6 @@ API access and WAF inspection.
 Apps contribute composable modules with explicit downstream, upstream, or host-selection
 placement and typed handoff requirements.
 
-This is a design proposal. There is no runtime implementation or stable schema yet.
+An experimental [Go Match spike](match/README.md) now exercises preparation, typed
+fact extraction and selection. Run `go run ./cmd/match-spike`. The broader runtime
+remains a design proposal; APIs and schemas are not stable.
