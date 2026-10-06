@@ -1,0 +1,99 @@
+{
+  "apiVersion": "fig/v1alpha1",
+  "scope": "demo",
+  "generation": "marker-inspection-1",
+  "resources": [
+    {
+      "type": "fig.match/v1alpha1",
+      "name": "select-marker",
+      "version": "1",
+      "spec": {
+        "phase": "request-headers",
+        "outputType": "fig.marker-value/v1alpha1",
+        "facts": [
+          {
+            "name": "inspected",
+            "extractor": "input-field/v1",
+            "type": "boolean",
+            "args": {
+              "name": "input.inspection"
+            }
+          }
+        ],
+        "rules": [
+          {
+            "id": "detected",
+            "when": {
+              "op": "equals",
+              "fact": "inspected",
+              "values": [
+                {
+                  "kind": "boolean",
+                  "bool": true
+                }
+              ]
+            },
+            "result": {
+              "value": "waf-detected"
+            }
+          },
+          {
+            "id": "clean",
+            "when": {
+              "op": "equals",
+              "fact": "inspected",
+              "values": [
+                {
+                  "kind": "boolean",
+                  "bool": false
+                }
+              ]
+            },
+            "result": {
+              "value": "waf-clean"
+            }
+          }
+        ],
+        "onNoMatch": {
+          "return": "no-match"
+        }
+      }
+    },
+    {
+      "type": "fig.pipeline/v1alpha1",
+      "name": "mark",
+      "version": "1",
+      "spec": {
+        "app": "fig.marker/v1alpha1",
+        "placement": "downstream-http",
+        "steps": [
+          {
+            "id": "select",
+            "module": "fig.match/v1alpha1",
+            "configRef": {
+              "type": "fig.match/v1alpha1",
+              "name": "select-marker",
+              "version": "1"
+            },
+            "onNoMatch": {
+              "continue": true
+            },
+            "onError": {
+              "localReply": {
+                "status": 500
+              }
+            }
+          },
+          {
+            "id": "apply",
+            "module": "fig.marker.apply/v1alpha1",
+            "input": {
+              "from": "select",
+              "type": "fig.marker-value/v1alpha1"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

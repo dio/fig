@@ -1,11 +1,12 @@
 # Request data and typed module handoffs
 
-Status: proposed behavior, informed by the [source survey](surveys/REQUEST_DATA.md).
-Scope: local Envoy, ordered downstream HTTP modules. No implementation in this change.
+Status: first header-time WAF → Marker implementation, informed by the
+[source survey](surveys/REQUEST_DATA.md). Scope: local Envoy, ordered downstream HTTP
+modules. The broader composition contract below remains a design target.
 
 ## Decision
 
-Fig should define a host-independent contract for publishing and consuming small
+Fig defines a host-independent contract for publishing and consuming small
 request-local values. The initial Envoy carrier is a bounded serialized envelope in
 raw-byte filter state. The producer owns the value's schema; the host adapter owns
 copying, storage and callback lifetime. Match continues to evaluate ordinary facts.
@@ -118,7 +119,7 @@ require; the system must not silently reinterpret a previous selection.
 
 ## Publication and reading
 
-Proposed conceptual API, independent of the SDK:
+Carrier API (the envelope and bindings are independent of the SDK):
 
 ```text
 Publish(preparedSlot, typedValue) -> success | conflict | invalid | limit | storeFailure
@@ -166,9 +167,12 @@ previous successful result. Do not put secrets or full request payloads in hando
 filter state can be exposed by explicitly configured loggers. Metadata should carry
 only bounded diagnostics such as slot/outcome/error code.
 
-Proposed first limits: 4 KiB per encoded envelope including identity, at most 16
-published slots, and at most 64 KiB encoded handoff data per chain. These are design
-budgets, not performance qualification. Bound key/type lengths and decode depth too.
+Implemented limits: 4 KiB per encoded envelope including identity, 16 scalar fields,
+1024 bytes per string value, 128 ASCII characters per identity/field name, decode
+depth 8 and 256 nodes. Fixture admission caps the chain at 16 declared stages, giving
+a conservative 64 KiB stored-envelope bound. Directly authored Envoy configurations
+can bypass that composition cap; adapters enforce the per-envelope limit only. These
+are allocation bounds, not performance qualification.
 The compiler can conservatively sum slot maxima, avoiding a mutable global byte
 counter across filters. Decoder allocations and per-consumer copies also consume
 memory; impose a bounded consumer count and measure actual memory in qualification.
@@ -176,7 +180,7 @@ Never silently truncate data or fall back to an untyped carrier.
 
 ## Package and dependency boundaries
 
-Proposed next packages:
+Implemented packages:
 
 - Root `handoff`: envelope, prepared bindings, bounded codecs and errors; no SDK or apps.
 - `hosts/envoy/handoff`: independent Go module implementing the carrier with the SDK,
@@ -201,10 +205,10 @@ Jev's inspected HTTP API includes a JSON model field. It can consume a model fac
 with compatible parser profile/representation, then perform its own State/Questions
 validation. Sharing `/model` does not imply a valid Jev request or replace WAF parsing.
 
-## Local qualification plan
+## Local qualification
 
-First implement WAF → Marker header outcome sharing without changing independent
-Marker behavior when no input binding is configured. No EG, Kubernetes or remote
+The first implementation provides WAF → Marker header outcome sharing. Independent
+Marker behavior is preserved when no input binding is configured. No EG, Kubernetes or remote
 channel is involved. Use real separate filter instances in one local Envoy, not only
 an in-memory mock or diagnostic headers.
 
@@ -227,3 +231,65 @@ Follow-up gates: body producer/consumer pause order, trailers and fragmented bod
 response-time reads and teardown order; recreated streams and upstream attempts;
 separate shared libraries if supported; hot configuration changes. Until tested,
 these remain unsupported rather than inferred from successful request-header sharing.
+
+## Implemented configuration and admission boundary
+
+The current transport wrapper remains `{entry, bundle}` with optional `export` on
+WAF and optional `input` on Marker. These bindings belong to trusted composition
+configuration, outside app bundles. The `instances` example above is still a future
+composition schema. Actual WAF `export` value:
+
+```json
+{
+  "activation": "local-1",
+  "placement": "edge",
+  "producer": "waf-a",
+  "slot": "inspection",
+  "type": "fig.waf-outcome/v1alpha1",
+  "scope": "demo",
+  "generation": "1",
+  "representation": "request-headers@waf-entry",
+  "phase": "request-headers"
+}
+```
+
+Marker `input` contains that same object under `binding`, plus `field: "matched"`,
+`fact: "input.inspection"`, `kind: "boolean"` and `required: true`. The consumed
+[Marker bundle](../examples/config/marker-inspection.json) extracts that admitted
+input field and selects `waf-clean` or `waf-detected`. It requires this binding;
+it is not a standalone replacement for the independent Marker example.
+
+WAF owns `fig.waf-outcome/v1alpha1`, currently the scalar fields `matched` (boolean),
+`action` (string) and `policy` (string). Its adapter checks export type, slot,
+representation, phase and producer bundle scope/generation at configuration time.
+The representation is the header input inspected after diagnostic headers are stripped.
+Marker consumes a generic scalar projection and imports no WAF code.
+
+`handoff.ValidateChain` checks ordering, exact identities, duplicate slots and stage
+count. Optional inputs may lack a producer entirely; a declared producer must precede
+the consumer. The fixture renderer invokes this check in template order. It does not
+parse arbitrary Envoy topology or implement the future activation compiler, registry,
+app output descriptors or full schema compatibility checking. Projection field names
+and scalar kinds are checked against the decoded record at runtime. Direct Envoy
+configuration bypassing the renderer still receives adapter validation and runtime
+identity checks; a missing required input or malformed record produces HTTP 500.
+
+Keys hash placement, producer and slot under `fig.handoff.`. Activation, generation,
+type and representation are checked inside the envelope, so stale values cannot be
+accepted as a fresh result. Publishing twice conflicts even when payloads match.
+Optional absence leaves the Match input missing; optional corruption still fails.
+
+Qualification completed on the pinned native macOS arm64 Envoy:
+
+- Real WAF → Marker clean/detect selection, block short circuit, spoofed diagnostic
+  headers, 40 concurrent requests, and two producer instances with different results.
+- Native runtime rejection of missing required values, stale generation, wrong type,
+  missing projection fields and duplicate publication; optional absence skips marking.
+- Unit tests for all identity fields, malformed/oversized envelopes, read-back failure,
+  copied ownership, invalid bindings and callbacks after stream completion.
+- Race tests and vet across all seven modules, plus a bounded decoder fuzz run.
+
+Two-producer native coverage uses distinct instance identities with the same generation;
+identity mismatch coverage separately checks generation. Reset/recreation, HTTP/2,
+response/body handoffs, separate libraries and live activation remain unqualified.
+There is no process-global request registry or shared parsed-body object.

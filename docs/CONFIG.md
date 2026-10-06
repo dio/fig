@@ -203,3 +203,14 @@ Body-aware resource composition is specified separately in the proposed
 [Body contract](primitives/BODY.md). Its illustrative Body resource and reference arguments are not
 yet accepted by the bundle app compilers or structural schema. The standalone native
 fixture implements a single parsed document with `body-json-pointer/v1` facts.
+
+## Admitted request inputs
+
+Marker's Envoy wrapper can bind one scalar field from a preceding producer using
+`input`; WAF's wrapper can publish an `export`. See the
+[request-data contract](REQUEST_DATA.md#implemented-configuration-and-admission-boundary).
+These attachments are distinct from app bundle resources. `CompileWithInputs` and
+`PrepareHeadersWithInputs` admit declared `input.*` string/boolean/integer fields to
+Match's existing input-field extractor. Native `path`, `method` and `authority`
+remain strings and cannot be shadowed. An undeclared field rejects preparation.
+The Marker app module remains independent of WAF, Coraza and Envoy.

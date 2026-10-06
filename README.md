@@ -8,7 +8,7 @@ API access and WAF inspection.
 - [Design](docs/DESIGN.md): responsibilities, semantics, invariants and examples.
 - [Configuration draft](docs/CONFIG.md): consumed bundles, primitive/app boundaries, and next actions.
 - [Match primitive](docs/primitives/MATCH.md): specification, preparation, evaluation and host boundaries.
-- [Request data](docs/REQUEST_DATA.md): proposed typed handoffs and [source survey](docs/surveys/REQUEST_DATA.md).
+- [Request data](docs/REQUEST_DATA.md): typed request handoffs and [source survey](docs/surveys/REQUEST_DATA.md).
 - [Rationale](docs/RATIONALE.md): source findings, tradeoffs and open decisions.
 - [BoE Coraza WAF case study](docs/case-studies/BOE-CORAZA-WAF.md): reuse boundaries, migration scope and effort estimate.
 
@@ -53,6 +53,7 @@ remain design topics and are not required by the development loop.
 ```text
 body/                       bounded immutable JSON views
 bundle/                     strict envelope decoding and exact references
+handoff/                    bounded typed request records and bindings
 match/                      fact extraction and selection
 match/config/                serializable Match resource preparation
 apps/                       independently versioned app modules
@@ -63,6 +64,7 @@ apps/                       independently versioned app modules
 hosts/envoy/                separate Go module: Envoy SDK and host integration
   cmd/fig-envoy/             c-shared library entry point
   internal/filter/           standalone Match demo; no app imports
+  handoff/                  independent SDK carrier module; no app dependencies
   integration/              native traffic tests, bootstrap and test backend
 examples/config/            consumed app bundles
 docs/LOCAL_DEVELOPMENT.md   local workflow and qualification
@@ -77,10 +79,14 @@ replacements within this checkout; no sibling repository or Go workspace is need
 Moving the experimental packages changes their Go import paths; configuration type
 names and registered Envoy factory names are unchanged.
 
-`make test` runs tests across all six modules (native traffic tests skip without
+`make test` runs tests across all seven modules (native traffic tests skip without
 their environment). `make native-test ENVOY_BIN=/path/to/envoy` additionally builds
 the matching shared library and runs real local Envoy traffic. Running `go test ./...`
 alone at the repository root covers only the core module.
 
 The local Envoy SDK pin uses standard `go.mod`/`go.sum` files. There are no alternate
 `native.mod`/`native.sum` manifests or `-modfile` build flags.
+
+The native handoff fixture passes WAF inspection outcomes through bounded filter state
+to Marker Match inputs. See [the implemented contract](docs/REQUEST_DATA.md#implemented-configuration-and-admission-boundary)
+for configuration, ownership and current limits.

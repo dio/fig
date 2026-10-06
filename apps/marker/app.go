@@ -57,6 +57,11 @@ type Result struct {
 var markerValue = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,128}$`)
 
 func Compile(data []byte, entry bundle.Ref) (*Prepared, error) {
+	return CompileWithInputs(data, entry, nil)
+}
+
+// CompileWithInputs adds only fields admitted by the host's prepared input bindings.
+func CompileWithInputs(data []byte, entry bundle.Ref, inputs map[string]match.Kind) (*Prepared, error) {
 	b, err := bundle.Decode(data)
 	if err != nil {
 		return nil, err
@@ -97,12 +102,12 @@ func Compile(data []byte, entry bundle.Ref) (*Prepared, error) {
 	for _, resource := range b.Resources() {
 		switch resource.Type {
 		case matchconfig.ResourceType:
-			prepared, err := matchconfig.PrepareHeaders(resource, OutputType, func(v value) error {
+			prepared, err := matchconfig.PrepareHeadersWithInputs(resource, OutputType, func(v value) error {
 				if !markerValue.MatchString(v.Value) {
 					return fmt.Errorf("marker must be 1..128 ASCII token characters")
 				}
 				return nil
-			})
+			}, inputs)
 			if err != nil {
 				return nil, err
 			}

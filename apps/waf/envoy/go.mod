@@ -3,12 +3,6 @@ module github.com/dio/fig/apps/waf/envoy
 go 1.27.1
 
 require (
-	github.com/dio/fig v0.0.0
-	github.com/dio/fig/apps/waf v0.0.0
-	github.com/envoyproxy/envoy/source/extensions/dynamic_modules v0.0.0-20260909102307-0a804c57cf5f
-)
-
-require (
 	github.com/corazawaf/coraza/v3 v3.7.0 // indirect
 	github.com/corazawaf/libinjection-go v0.3.2 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
@@ -35,3 +29,12 @@ replace github.com/dio/fig => ../../..
 replace github.com/dio/fig/apps/waf => ..
 
 replace github.com/envoyproxy/envoy/source/extensions/dynamic_modules => github.com/dio/envoy/source/extensions/dynamic_modules v0.0.0-20260909102307-0a804c57cf5f
+
+require (
+	github.com/dio/fig v0.0.0
+	github.com/dio/fig/apps/waf v0.0.0
+	github.com/dio/fig/hosts/envoy/handoff v0.0.0
+	github.com/envoyproxy/envoy/source/extensions/dynamic_modules v0.0.0-20260909102307-0a804c57cf5f
+)
+
+replace github.com/dio/fig/hosts/envoy/handoff => ../../../hosts/envoy/handoff

@@ -2,11 +2,14 @@ package envoy
 
 import (
 	"encoding/json"
+
 	"github.com/dio/fig/bundle"
+	"github.com/dio/fig/handoff"
 )
 
 // The common bootstrap wrapper carries data; app compilers own its semantics.
 type appConfig struct {
+	Input  *handoff.Input  `json:"input,omitempty"`
 	Entry  bundle.Ref      `json:"entry"`
 	Bundle json.RawMessage `json:"bundle"`
 }

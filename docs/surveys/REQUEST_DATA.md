@@ -2,6 +2,9 @@
 
 Status: source survey, 2026-10-06. No new data-sharing runtime or native qualification
 was implemented in this change. Scope is one local Envoy, downstream HTTP filters.
+The subsequent [first implementation](../REQUEST_DATA.md#implemented-configuration-and-admission-boundary)
+adds native WAF → Marker qualification; findings below describe the survey baseline.
+
 Fig baseline: `6ba0e771b0f8fdf518ec034c62e99c7017549db0`.
 
 ## Findings

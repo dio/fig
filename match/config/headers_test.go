@@ -78,3 +78,24 @@ func TestHeaderConfigRejects(t *testing.T) {
 		t.Fatal("validator bypassed")
 	}
 }
+
+func TestPreparedInputs(t *testing.T) {
+	r := resource(t, func(s map[string]any) {
+		fact := s["facts"].([]any)[0].(map[string]any)
+		fact["args"] = map[string]any{"name": "input.matched"}
+		fact["type"] = "boolean"
+	})
+	if _, err := PrepareHeaders(r, "test/string", func(string) error { return nil }); err == nil {
+		t.Fatal("undeclared input accepted")
+	}
+	if _, err := PrepareHeadersWithInputs(r, "test/string", func(string) error { return nil }, map[string]match.Kind{"input.matched": match.Boolean}); err != nil {
+		t.Fatal(err)
+	}
+	for _, fields := range []map[string]match.Kind{
+		{"path": match.Boolean}, {"input.matched": match.String}, {"input.matched": "object"},
+	} {
+		if _, err := PrepareHeadersWithInputs(r, "test/string", func(string) error { return nil }, fields); err == nil {
+			t.Fatal("invalid fields accepted")
+		}
+	}
+}

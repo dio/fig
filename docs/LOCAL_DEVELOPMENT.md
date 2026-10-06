@@ -149,3 +149,23 @@ and `apps/waf/envoy` modules; `hosts/envoy/cmd/fig-envoy` composes their factori
 `hosts/envoy/internal/filter` contains the standalone Match adapter used by this fixture.
 See the [root README](../README.md) for module boundaries. Current qualification is
 local native Envoy only; APIs remain experimental.
+
+## WAF → Marker request handoff
+
+The same `make native-test ENVOY_BIN=/path/to/envoy` command also runs
+`TestNativeHandoff`. Each case starts one local Envoy, using the WAF bundle and
+`examples/config/marker-inspection.json` plus explicit producer/consumer bindings.
+A clean `/observe` request yields `waf-clean`; detection yields `waf-detected`.
+An enforcing block prevents Marker and backend execution. The value comes from
+filter state, with client diagnostic headers stripped.
+
+Other cases cover two producer instances, duplicate publication, missing required
+and optional input, stale generation, wrong type and missing projection fields.
+Failure cases assert HTTP 500 and no backend receipt; 40 concurrent requests check
+isolation. Original independent Marker tests still run. The fixture renders bindings
+in template order and checks declared dependencies before starting Envoy; fault
+injection cases deliberately alter configuration after that admission check.
+
+The [request-data contract](REQUEST_DATA.md) records the exact schema and remaining
+qualification gates. Only compact header-time scalar results cross filter instances;
+the parsed JSON body is still owned by its original filter.

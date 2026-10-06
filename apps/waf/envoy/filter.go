@@ -2,11 +2,15 @@ package envoy
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
 	wafapp "github.com/dio/fig/apps/waf"
 	"github.com/dio/fig/apps/waf/inspect"
+	"github.com/dio/fig/bundle"
+	"github.com/dio/fig/handoff"
+	carrier "github.com/dio/fig/hosts/envoy/handoff"
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
 )
 
@@ -17,6 +21,7 @@ type ConfigFactory struct {
 type wafAppFactory struct {
 	shared.EmptyHttpFilterFactory
 	prepared *wafapp.Prepared
+	export   *handoff.Slot
 }
 
 func (*ConfigFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
@@ -28,10 +33,23 @@ func (*ConfigFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shar
 	if err != nil {
 		return nil, err
 	}
-	return &wafAppFactory{prepared: prepared}, nil
+	if bootstrap.Export != nil {
+		slot := *bootstrap.Export
+		if err := slot.Validate(); err != nil {
+			return nil, err
+		}
+		b, err := bundle.Decode(bootstrap.Bundle)
+		if err != nil {
+			return nil, err
+		}
+		if slot.Type != wafapp.OutcomeType || slot.Name != "inspection" || slot.Scope != b.Scope() || slot.Generation != b.Generation() || slot.Representation != "request-headers@waf-entry" {
+			return nil, fmt.Errorf("WAF export does not match installed contract or bundle identity")
+		}
+	}
+	return &wafAppFactory{prepared: prepared, export: bootstrap.Export}, nil
 }
 func (f *wafAppFactory) Create(h shared.HttpFilterHandle) shared.HttpFilter {
-	return &wafAppFilter{prepared: f.prepared, handle: h}
+	return &wafAppFilter{prepared: f.prepared, handle: h, export: f.export}
 }
 
 type wafAppFilter struct {
@@ -40,9 +58,14 @@ type wafAppFilter struct {
 	handle    shared.HttpFilterHandle
 	result    wafapp.Result
 	evaluated bool
+	ended     bool
+	export    *handoff.Slot
 }
 
 func (f *wafAppFilter) OnRequestHeaders(headers shared.HeaderMap, _ bool) shared.HeadersStatus {
+	if f.ended {
+		return shared.HeadersStatusStop
+	}
 	for _, name := range []string{"x-fig-policy", "x-fig-waf-policy", "x-fig-waf-action", "x-fig-waf-matched", "x-fig-waf-rule"} {
 		headers.Remove(name)
 	}
@@ -57,6 +80,12 @@ func (f *wafAppFilter) OnRequestHeaders(headers shared.HeaderMap, _ bool) shared
 	f.result = f.prepared.Execute(request, strings.SplitN(request.URI, "?", 2)[0])
 	f.evaluated = true
 	r := f.result
+	if f.export != nil {
+		if err := carrier.Publish(f.handle, *f.export, r.OutcomeRecord()); err != nil {
+			f.handle.SendLocalResponse(500, nil, []byte(`{"error":"handoff_failed"}`), "fig_handoff_failed")
+			return shared.HeadersStatusStop
+		}
+	}
 	f.handle.SetMetadata("fig.waf", "outcome", map[string]any{"policy": r.Policy, "action": r.Outcome.Action, "matched": r.Outcome.Matched, "rule_id": r.Outcome.RuleID, "generation": r.Generation, "scope": r.Scope})
 	if r.Status != 0 {
 		body, _ := json.Marshal(map[string]string{"error": r.Code, "action": r.Outcome.Action, "policy": r.Policy})
@@ -79,3 +108,5 @@ func (f *wafAppFilter) OnResponseHeaders(headers shared.HeaderMap, _ bool) share
 	}
 	return shared.HeadersStatusContinue
 }
+
+func (f *wafAppFilter) OnStreamComplete() { f.ended = true }
