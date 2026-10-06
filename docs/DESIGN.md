@@ -7,10 +7,15 @@ boundaries exist and which decisions remain open.
 
 ## 1. Developer objective
 
-Describe how a gateway extracts request facts, selects application behavior, and
-executes upstream attempts using serializable specifications. The same foundation
-should support an LLM proxy, API gateway, and WAF composition without making a model
-name or provider kind a universal routing primitive.
+Describe how a runtime extracts facts, selects component behavior, and executes
+that behavior using serializable specifications. Consumers are open-ended: MCP
+profile routing, MCP tool routing, Jev decisions, caching, LLM routing, API gateway
+behavior and WAF inspection are examples, not a closed set of applications.
+
+A selected behavior may inspect, evaluate, transform, serve a local result, invoke a
+tool, or dispatch upstream. Neither an HTTP destination nor a model/provider pair
+is a required universal output. The initial host-oriented examples use request
+processing; other event models require explicit phase and lifecycle adapters.
 
 Operators must be able to deliver configuration independently of Envoy topology,
 observe which configuration is accepted and active, update it safely, and explicitly
@@ -25,8 +30,8 @@ authority expires, or a backend fails.
 | Compiler | Type checking, dependency checking, indexes and executable preparation |
 | View runtime | Publication, capture, retirement and lifetime of prepared views |
 | Match | Extract declared facts and select application context or a routing plan |
-| Policy stage | Application-specific inspection, authentication, authorization or quota |
-| Executor | Routing-plan traversal, attempt budgets, retry, fallback and cancellation |
+| Component stage | Typed behavior such as inspection, decision evaluation, caching, authentication or quota |
+| Executor | Routing/invocation-plan traversal, attempt budgets, retry, fallback and cancellation |
 | Pick | Resolve a logical target to a compatible concrete host |
 | Adapt | Construct the target-specific request and transform its response |
 | Distribution adapter | Authenticate delivery and transport versioned resources |
@@ -34,7 +39,7 @@ authority expires, or a backend fails.
 
 Management owns desired state and authorization to publish. Delivery does not create
 that authority. A selected route or accepted configuration does not itself authorize
-an upstream request. Private credential custody stays outside ordinary routing specs.
+a protected operation, including serving a local cached result. Private credential custody stays outside ordinary routing specs.
 
 Gateway API, AI-oriented APIs, files and other authoring surfaces can be adapters.
 Fig does not require a new public CRD. An internal serializable execution contract
@@ -135,10 +140,18 @@ Start with explicit ordered first-match rules and basic typed comparisons/boolea
 composition. Do not introduce a general expression language until concrete use cases
 require it. A compiler rejects unknown fact references and incompatible comparisons.
 
-The selection result can identify deployment, route/operation, destination binding,
-policy references and application-owned typed attributes. LLM model/provider details
+The selection result can identify a deployment, route/operation, MCP profile or tool
+binding, Jev decision configuration, cache policy, destination binding, policy
+references, or component-owned typed attributes. LLM model/provider details
 belong to an LLM-specific binding or result, rather than mandatory universal fields.
 Selecting a policy reference does not run that policy or prove its decision succeeded.
+
+A registered component declares its input facts, typed output, execution phases and
+configuration dependencies. It also declares whether it may continue processing,
+terminate with a local result, reject, or request a supported invocation plan. These
+are contracts for composition, not permission for documents to load executable code.
+Adding a component must not require extending a central application-name enum or
+putting its payload fields into every other component's view.
 
 Selection can occur at more than one phase. Early selection establishes deployment
 and applicable inspection policy; later body-dependent selection can complete the
@@ -174,9 +187,12 @@ model mapping, headers and scoped credential use.
 | Split | Select one child according to declared weights and selection policy |
 | Chain | Try children in order, advancing only on configured outcomes |
 
-A chain here is an upstream fallback sequence. An ordered HTTP filter pipeline is a
+A chain here is a destination fallback sequence, including supported tool/server invocations. An ordered HTTP filter pipeline is a
 separate composition and must not be represented as a fallback chain. WAF is a policy
-stage, not an alternate upstream destination.
+stage, not an alternate upstream destination. A cache hit or local decision is also
+a component outcome; it does not need a synthetic network target. A target binding
+names the executor/adapter that supports it; endpoint Pick applies when that binding
+actually requires host selection.
 
 Plans may nest splits and chains. Preparation validates references, rejects cycles,
 and bounds depth, node count and fan-out. Weights must have a documented numeric
@@ -245,13 +261,61 @@ Required invariants:
 Initial scope is sequential attempts. Hedging, parallel branches and stream resumption
 are separate designs.
 
-## 9. WAF and API access as concrete consumers
+## 9. An open set of consumers
 
 | Consumer | Prepared material | Request-owned state | Replacement/outage concern |
 |---|---|---|---|
 | LLM routing | Model selectors, plans, target bindings | Selected model and attempt state | Keep related target/adaptation references coherent |
 | API access | Route indexes, authentication and entitlement material | Captured decision, deadlines, quota evidence | Recheck authority before dispatch; fence invalidated continuations |
 | WAF | Captured rules/CRS and compiled policy engines | Inspection transaction and captured mode | Preserve the selected engine through request/response processing |
+| MCP profile routing | Profile selectors, capability exposure and server/tool bindings | Captured profile and any session binding | A profile update must not silently broaden existing authority or retarget an active session |
+| MCP tool routing | Qualified tool identities, argument schemas and invocation bindings | Validated call identity, arguments and attempt state | Discovery and invocation must agree; replay safety depends on the tool's side effects |
+| Jev | Typed decision definitions, input/output schemas and execution bindings | Validated decision input and evaluation/result state | Validate result type; any escalation or handoff is explicit behavior |
+| Cache | Key extraction, eligibility, partitioning, freshness and invalidation policy | Key, lookup result and any owned fill operation | Preserve tenant/identity isolation; policy replacement is distinct from entry invalidation |
+
+These are illustrative Fig contracts, not claims that all adapters already exist.
+Their shared unit is a typed, prepared configuration view; their runtime semantics
+remain component-owned.
+
+### MCP profiles and tools
+
+Profile selection can choose the exposed tool set and its server bindings. Tool
+selection then resolves a qualified tool identity within that profile, validates its
+arguments and selects an invocation binding. A JSON-RPC method alone is insufficient:
+a tool invocation also needs its tool name and the authorized profile context.
+
+An implementation must define consistency between advertised tools and invocation:
+use a captured catalog/profile version or an explicit revalidation rule. Sessions
+require declared update, expiry and removal behavior; per-message capture alone
+cannot safely define session affinity. Retrying a tool call requires explicit replay
+permission even when the transport method is the same for read-only and mutating tools.
+Discovery does not confer invocation authority. User arguments cannot select arbitrary
+servers or private credential scopes.
+
+### Jev and other decision components
+
+Selection can choose a typed decision definition and an execution binding. The
+component owns evaluation, input/result validation and observations. Evaluation may
+be local or use a declared adapter; Fig does not assume that every decision is an LLM
+call. Escalation to another component, if desired, is an explicit composition contract,
+not an implicit response to any evaluator error.
+
+### Cache
+
+The serializable view describes cache behavior, not the mutable cache contents. A
+cache stage owns lookup/fill state, capacity and concurrency separately from view
+publication. Replacing a view does not automatically empty, preserve or reinterpret
+entries: key-version and invalidation semantics must specify that behavior.
+
+Cache keys declare tenant, identity/authorization partitioning where required,
+operation identity and relevant input facts. Eligibility and freshness are explicit.
+A local cache hit must still satisfy required access and protection gates; it cannot
+bypass them because no upstream dispatch occurs. Coalesced fills need ownership rules
+so cancellation by one waiter does not incorrectly cancel work owned by other waiters.
+Stale-while-revalidate, negative caching and semantic caching require separate declared
+policies; none is implied by the existence of a cache stage.
+
+### WAF and shared lifecycle requirements
 
 WAF policy content and runtime enforcement mode are distinct resources. A mode
 selection must reference the exact prepared policy revision it applies to. Detection-only
@@ -313,6 +377,11 @@ Do not include raw credentials, request bodies or sensitive extracted facts by d
 Before selecting a wire protocol, executable examples must establish:
 
 - LLM body selection, HTTP operation selection, and early WAF policy selection.
+- MCP profile/tool selection with consistent advertised and invoked tool identities,
+  argument validation, session update rules, and no replay of non-replayable calls.
+- Jev typed input/output selection without requiring LLM execution.
+- Cache key isolation, explicit invalidation, and local hits that preserve required
+  access/protection gates; mutable cache entries remain outside immutable views.
 - Missing versus pending facts, malformed bodies, bounds and ambiguous selection.
 - Invalid preparation leaves active state untouched; cross-view activation is coherent.
 - An update during body wait cannot mix generations.
@@ -325,9 +394,14 @@ Before selecting a wire protocol, executable examples must establish:
 
 ## 13. First design slice and exclusions
 
-First specify three examples and their expected event traces: LLM model routing,
-API operation selection, and WAF policy/mode selection. Then define typed extraction,
-selection results, prepared-view lifetime and sequential plan execution. Only then
+First specify a representative matrix and its expected event traces: LLM model
+routing, API operation selection, WAF policy/mode selection, MCP profile/tool routing,
+Jev decision selection and cache lookup/local completion. This matrix exercises the
+abstraction; it does not require implementing every adapter in the first slice.
+
+Then define typed extraction, selection results, component outcomes, prepared-view
+lifetime and sequential plan execution. Include at least one local completion case
+alongside upstream dispatch so the contract does not accidentally require forwarding. Only then
 choose transport schemas and a host adapter.
 
 This proposal does not implement a general workflow engine, arbitrary uploaded code,

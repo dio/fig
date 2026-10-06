@@ -8,7 +8,8 @@ does not claim that Fig implements them.
 
 The immediate question was whether Plum's component views could receive independently
 streamed configuration. That exposed an earlier question: what constitutes a view when
-the consumers include model routing, general API access and WAF inspection?
+the consumers include routing, inspection, MCP profiles/tools, typed decisions, caches
+and other independently configured behavior?
 
 Choosing resource type URLs before answering that would encode today's application
 shapes into a transport contract. We first need stable meanings for facts, selection,
@@ -157,10 +158,33 @@ No deployment topology can replace resource-level authorization by scope/type/na
 See [Kona's certificate rationale](https://github.com/dio/kona/blob/main/docs/certificates.md)
 and [EG's cert-manager installation path](https://github.com/dio/kona/blob/main/docs/eg-cert-manager.md).
 
+## Decision 9: consumers are extensible, and completion can be local
+
+**Choice:** treat WAF, API access, LLM, MCP profiles/tools, Jev and cache as examples
+of typed components. Their selection outputs and prepared contents stay specific to
+their contracts. Shared composition describes phases, dependencies, outcomes and
+lifetime without a closed application-name list.
+
+MCP introduces profile/catalog consistency, tool identity, sessions and side effects.
+Jev introduces typed decision evaluation that need not call an LLM. Cache introduces
+mutable entry/fill state and successful local completion without upstream selection.
+Together they expose assumptions that a routing-only example would leave hidden.
+
+We reject forcing every result into a provider/backend tuple, representing every
+component as a fallback target, or putting mutable cache entries into an immutable
+configuration view. We also avoid assuming that no upstream call means no authorization
+check. Required access and inspection gates still apply before a cached result can be
+served.
+
+This extends the conceptual scope; it does not establish implementation support or
+claim these projects already share one runtime. Component registration and schema
+validation must reject unsupported behavior explicitly.
+
 ## Decisions still required before implementation
 
 1. **Examples and phases:** exact fact sets, selection results and event traces for
-   LLM routing, API access and WAF; where trusted identity becomes available.
+   LLM routing, API access, WAF, MCP profiles/tools, Jev and cache; where trusted
+   identity becomes available, where sessions bind, and where local completion is legal.
 2. **Schema:** protobuf, JSON Schema, or another authoritative definition; error
    vocabulary; compatibility and extension registration.
 3. **Activation scope:** which resources can update independently and which must move
@@ -173,7 +197,10 @@ and [EG's cert-manager installation path](https://github.com/dio/kona/blob/main/
    host handles; limits for long-lived requests and retained generations.
 7. **Delivery:** Delta ADS or another protocol, reconnect behavior, slow subscribers,
    authorization, message limits and how streaming fits the host integration.
-8. **Qualification:** focused model tests followed by real-host traffic, including
+8. **Component state:** MCP session/catalog consistency, tool replay permission, Jev
+   result validation, cache isolation/invalidation and fill ownership. Determine which
+   guarantees belong to shared composition versus the component implementation.
+9. **Qualification:** focused model tests followed by real-host traffic, including
    backend non-receipt on denials and cancellation. Existing project evidence does
    not automatically qualify a new Fig adapter.
 
