@@ -16,7 +16,7 @@ type plan struct {
 }
 
 func main() {
-	early, err := match.Prepare[policy](match.Spec{
+	early, err := match.Prepare(match.Spec{
 		Schema: "fig.match/v1", Name: "edge-waf", Revision: "1", Phase: match.Headers,
 		Facts: []match.FactSpec{{Name: "host", Extractor: "input-field/v1", Type: match.String,
 			Args: json.RawMessage(`{"name":"hostname"}`)}},

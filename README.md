@@ -17,13 +17,25 @@ An experimental [Go Match spike](match/README.md) now exercises preparation, typ
 fact extraction and selection. Run `go run ./cmd/match-spike`. The broader runtime
 remains a design proposal; APIs and schemas are not stable.
 
-## Native Envoy spike
+## Single-Envoy native tests — no Docker
 
-Run Match as two Envoy Go dynamic-module filters against a real backend:
+Requires Go 1.27.1, a cgo compiler, and a matching native Envoy binary. On macOS
+arm64, use the `0a804c57` / 1.40.0-dev build:
+
+```sh
+make native-test ENVOY_BIN="$HOME/.tetrate/bin/envoy"
+```
+
+This builds the host-native module and starts one Envoy child process from Go tests,
+with an in-process HTTP backend. Fig imports the published, pinned `dio/kona/envoytest`
+runner; no sibling checkout is required. See [setup, binary download, and the native
+workflow](spike/envoy/README.md#direct-native-tests-no-docker).
+
+The earlier Docker Compose lane remains available:
 
 ```sh
 python3 spike/envoy/verify.py
 ```
 
-Requires Docker/Compose and Python 3. See the [native walkthrough and qualification
-results](spike/envoy/README.md), including manual startup and the pinned SDK limitation.
+See the [walkthrough and qualification results](spike/envoy/README.md) for the separate
+native/Docker pins and SDK limitation.

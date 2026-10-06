@@ -1,0 +1,4 @@
+github.com/dio/envoy/source/extensions/dynamic_modules v0.0.0-20260909102307-0a804c57cf5f h1:4R23DMsv3Upu4Duw/B95NxYXgLyQxwQP0CDxGAvkHMc=
+github.com/dio/envoy/source/extensions/dynamic_modules v0.0.0-20260909102307-0a804c57cf5f/go.mod h1:NpQosaDAX20s0ak0o/4b5dLOdvkbk15XqoakhSNX1Gg=
+github.com/dio/kona v0.0.0-20261006030050-dc14e5541e93 h1:fA+dThSG6okCiWOA/LZNOzjGNkPau/GTKgd+txqsh3Q=
+github.com/dio/kona v0.0.0-20261006030050-dc14e5541e93/go.mod h1:Avl/h7E7WYjz9WqebuLwjDEQmUS+03H2s1/7fXTWOrA=

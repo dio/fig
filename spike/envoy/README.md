@@ -18,6 +18,60 @@ recorded in host-local dynamic metadata. The adapter also overwrites demonstrati
 headers `x-fig-policy` / `x-fig-plan` so the backend can report the selected values.
 Those headers are diagnostics, not an authorization or production handoff contract.
 
+## Direct native tests (no Docker)
+
+The preferred development loop follows Transit: Go tests create an `httptest.Server`
+backend and launch **one native Envoy child process**. The reusable runner is imported
+from the published `github.com/dio/kona/envoytest`, pinned in this module's `go.mod`.
+No local Kona checkout or absolute machine-specific replacement is required.
+
+On a fresh macOS arm64 checkout:
+
+```sh
+git clone https://github.com/dio/fig.git
+cd fig
+make native-test ENVOY_BIN="$HOME/.tetrate/bin/envoy"
+```
+
+Requirements: Go 1.27.1, Xcode Command Line Tools/cgo compiler, and native Envoy
+commit `0a804c57cf5f` (1.40.0-dev). `native.mod` pins the matching SDK override; the
+regular `go.mod` retains Envoy 1.38 for the existing Docker lane. Newer is supported
+here by matching the SDK to the binary, not by bypassing ABI compatibility checks.
+
+If Envoy is not installed, download the macOS 15+ arm64 release (verified SHA-256
+from the publisher):
+
+```sh
+mkdir -p .bin
+curl -fL --retry 3 \
+  https://github.com/dio/envoy-builder/releases/download/envoy-0a804c57-macos15/envoy-darwin-arm64 \
+  -o .bin/envoy.download
+printf '%s  %s\n' \
+  7ca52fc807b9dc0c95303b50ed5bab65df945a2ceb4ebc0440b88377d4fcb76d \
+  .bin/envoy.download | shasum -a 256 -c - && \
+  chmod +x .bin/envoy.download && mv .bin/envoy.download .bin/envoy
+make native-test ENVOY_BIN="$PWD/.bin/envoy"
+```
+
+Build/test individually:
+
+```sh
+cd spike/envoy
+make native-build
+ENVOY_BIN=/absolute/path/to/envoy FIG_MODULE="$PWD/.bin/libfig_match.so" \
+  go test -modfile=native.mod -v -count=1 -timeout=60s .
+```
+
+`make native-test` checks the Envoy commit. Direct Go test callers must supply matching
+artifacts. The native suite skips when `ENVOY_BIN` is unset; with it set, missing or
+incompatible artifacts fail. Temporary configs, backend listeners and the Envoy process
+are cleaned up by the test. Build artifacts under `.bin` remain available for reuse.
+
+The native lane uses the same `GODEBUG=cgocheck=0` SDK workaround. It exercises header
+and body selection, spoof replacement, default/no-match/error paths, trailers and 40
+concurrent requests. The Compose lane below additionally covers deliberately fragmented
+bodies, streaming overflow and client aborts. Neither lane qualifies live view updates.
+
 ## Run the automated live check
 
 Requires Docker with Linux containers, Docker Compose v2, and Python 3. No host Go
@@ -117,6 +171,11 @@ Keep the SDK and Envoy pins together when upgrading. The shared library is built
 the Docker engine's Linux architecture, not the host macOS ABI.
 
 ## Observed qualification
+
+The direct native suite also passed on 2026-10-06 on macOS arm64 against
+`0a804c57cf5fbd56da553062bebc9b88482b0d1b/1.40.0-dev/Clean/RELEASE/BoringSSL`.
+It recorded 43 accepted backend requests and no receipt for denied requests. The
+installed binary was used; the documented download recipe was not rerun.
 
 On 2026-10-06, the script completed on Linux arm64 containers on the local Docker
 engine. Envoy reported:
