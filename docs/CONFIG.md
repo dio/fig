@@ -26,7 +26,8 @@ logical destination to a host for an app that dispatches upstream. Apps need not
 every primitive. Future LLM/MCP apps may compose Match, Pick and Adapt without putting
 their fields into either Match or WAF.
 
-Apps live in the `apps` Go module, keeping Coraza out of Fig's core module.
+WAF and Marker have separate `apps/waf` and `apps/marker` Go modules. Coraza is
+a dependency of WAF only; Marker depends on Fig core.
 Each app owns a separate `envoy` adapter module with the SDK dependency. The
 `hosts/envoy` executable composes these adapters and owns the local integration
 harness. App logic packages import no Envoy SDK. These boundaries are implemented; the APIs remain experimental.

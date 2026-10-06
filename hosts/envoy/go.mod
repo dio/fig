@@ -5,7 +5,8 @@ go 1.27.1
 require (
 	github.com/corazawaf/coraza/v3 v3.7.0 // indirect
 	github.com/corazawaf/libinjection-go v0.3.2 // indirect
-	github.com/dio/fig/apps v0.0.0 // indirect
+	github.com/dio/fig/apps/marker v0.0.0 // indirect
+	github.com/dio/fig/apps/waf v0.0.0 // indirect
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/gotnospirit/makeplural v0.0.0-20180622080156-a5f48d94d976 // indirect
@@ -29,7 +30,9 @@ replace github.com/dio/fig => ../..
 
 replace github.com/envoyproxy/envoy/source/extensions/dynamic_modules => github.com/dio/envoy/source/extensions/dynamic_modules v0.0.0-20260909102307-0a804c57cf5f
 
-replace github.com/dio/fig/apps => ../../apps
+replace github.com/dio/fig/apps/marker => ../../apps/marker
+
+replace github.com/dio/fig/apps/waf => ../../apps/waf
 
 require (
 	github.com/dio/fig v0.0.0

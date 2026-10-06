@@ -54,7 +54,7 @@ body/                       bounded immutable JSON views
 bundle/                     strict envelope decoding and exact references
 match/                      fact extraction and selection
 matchconfig/                serializable Match resource preparation
-apps/                       separate Go module: app semantics and dependencies
+apps/                       independently versioned app modules
   marker/                   Match → diagnostic marker
   waf/                      Match → policy → Coraza inspection
   marker/envoy/             independent Envoy adapter module
@@ -76,7 +76,7 @@ replacements within this checkout; no sibling repository or Go workspace is need
 Moving the experimental packages changes their Go import paths; configuration type
 names and registered Envoy factory names are unchanged.
 
-`make test` runs tests across all five modules (native traffic tests skip without
+`make test` runs tests across all six modules (native traffic tests skip without
 their environment). `make native-test ENVOY_BIN=/path/to/envoy` additionally builds
 the matching shared library and runs real local Envoy traffic. Running `go test ./...`
 alone at the repository root covers only the core module.

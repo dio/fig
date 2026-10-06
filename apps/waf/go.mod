@@ -1,4 +1,4 @@
-module github.com/dio/fig/apps
+module github.com/dio/fig/apps/waf
 
 go 1.27.1
 
@@ -28,4 +28,4 @@ require (
 	rsc.io/binaryregexp v0.2.0 // indirect
 )
 
-replace github.com/dio/fig => ..
+replace github.com/dio/fig => ../..
