@@ -340,3 +340,18 @@ decisions as well as upstream routing.
 These should be resolved with the smallest executable vertical slice after agreement
 on the concepts. No new distribution service, public CRD or generic plugin framework
 is required to settle the first set of semantics.
+
+## Decision 14: apps own composition; primitives remain reusable
+
+The consumed WAF bundle is compiled by the WAF app, not by Match and not by a
+universal compiler with built-in WAF fields. Generic bundle code handles strict
+resource decoding and exact references. The WAF app owns its selected-policy type,
+policy preparation, supported Match-to-inspection wiring and next-action mapping.
+The Envoy adapter owns callbacks and local replies. Upstream Pick is not required
+for local policy resolution; apps compose it only when they dispatch to a destination.
+
+For the first runnable bundle, structured header-equality rules replace the draft's
+raw SecLang field. This makes phase and capability restrictions enforceable without
+trying to safely recognize all directives in an unrestricted policy language. Full
+SecLang/CRS needs its own preparation contract. Unsupported composition fails rather
+than being partially lowered. See [the configuration contract](CONFIG.md).

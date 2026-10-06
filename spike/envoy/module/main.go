@@ -37,7 +37,7 @@ type factory struct {
 
 func init() {
 	sdk.RegisterHttpFilterConfigFactories(map[string]shared.HttpFilterConfigFactory{
-		"fig-match": &configFactory{}, "fig-waf": &wafConfigFactory{},
+		"fig-match": &configFactory{}, "fig-waf-app": &wafAppConfigFactory{},
 	})
 }
 func (*configFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {

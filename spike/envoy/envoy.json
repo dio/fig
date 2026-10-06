@@ -52,7 +52,7 @@
                   },
                   "http_filters": [
                     {
-                      "name": "fig-edge-policy",
+                      "name": "fig-waf-app",
                       "typed_config": {
                         "@type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
                         "dynamic_module_config": {
@@ -64,30 +64,10 @@
                           },
                           "do_not_close": true
                         },
-                        "filter_name": "fig-match",
+                        "filter_name": "fig-waf-app",
                         "filter_config": {
                           "@type": "type.googleapis.com/google.protobuf.StringValue",
-                          "value": "{\"generation\": \"generation-1\", \"spec\": {\"schema\": \"fig.match/v1\", \"revision\": \"1\", \"name\": \"edge-policy\", \"phase\": \"request-headers\", \"facts\": [{\"name\": \"path\", \"extractor\": \"input-field/v1\", \"type\": \"string\", \"args\": {\"name\": \"path\"}}], \"rules\": [{\"id\": \"chat\", \"when\": {\"op\": \"equals\", \"fact\": \"path\", \"values\": [{\"kind\": \"string\", \"text\": \"/chat\"}]}, \"result\": {\"ref\": \"chat-policy\"}}, {\"id\": \"observe\", \"when\": {\"op\": \"equals\", \"fact\": \"path\", \"values\": [{\"kind\": \"string\", \"text\": \"/observe\"}]}, \"result\": {\"ref\": \"observe-policy\"}}, {\"id\": \"unconfigured\", \"when\": {\"op\": \"equals\", \"fact\": \"path\", \"values\": [{\"kind\": \"string\", \"text\": \"/unconfigured\"}]}, \"result\": {\"ref\": \"unknown-policy\"}}], \"default\": {\"ref\": \"baseline\"}}, \"outputHeader\": \"x-fig-policy\"}"
-                        }
-                      }
-                    },
-                    {
-                      "name": "fig-waf",
-                      "typed_config": {
-                        "@type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
-                        "dynamic_module_config": {
-                          "name": "fig_match",
-                          "module": {
-                            "local": {
-                              "filename": "/usr/local/lib/libfig_match.so"
-                            }
-                          },
-                          "do_not_close": true
-                        },
-                        "filter_name": "fig-waf",
-                        "filter_config": {
-                          "@type": "type.googleapis.com/google.protobuf.StringValue",
-                          "value": "{\"selection\": \"edge-policy\", \"generation\": \"generation-1\", \"policies\": {\"baseline\": {\"mode\": \"enforce\"}, \"chat-policy\": {\"mode\": \"enforce\"}, \"observe-policy\": {\"mode\": \"detect\"}}}"
+                          "value": "__FIG_BUNDLE_CONFIG__"
                         }
                       }
                     },

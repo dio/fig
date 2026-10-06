@@ -22,6 +22,26 @@
         ],
         "rules": [
           {
+            "id": "chat",
+            "when": {
+              "op": "equals",
+              "fact": "path",
+              "values": [
+                {
+                  "kind": "string",
+                  "text": "/chat"
+                }
+              ]
+            },
+            "result": {
+              "policyRef": {
+                "type": "fig.waf-policy/v1alpha1",
+                "name": "chat-policy",
+                "version": "1"
+              }
+            }
+          },
+          {
             "id": "observe",
             "when": {
               "op": "equals",
@@ -36,7 +56,7 @@
             "result": {
               "policyRef": {
                 "type": "fig.waf-policy/v1alpha1",
-                "name": "observe",
+                "name": "observe-policy",
                 "version": "1"
               }
             }
@@ -62,22 +82,54 @@
         "mode": "enforce",
         "inspection": "request-headers",
         "rules": {
-          "format": "seclang",
-          "inline": "SecRule REQUEST_HEADERS:X-Fig-Attack \"@streq attack\" \"id:1001,phase:1,deny,status:403,nolog\""
+          "format": "header-rules/v1",
+          "items": [
+            {
+              "id": 1001,
+              "header": "X-Fig-Attack",
+              "equals": "attack"
+            }
+          ]
         }
       }
     },
     {
       "type": "fig.waf-policy/v1alpha1",
-      "name": "observe",
+      "name": "chat-policy",
+      "version": "1",
+      "spec": {
+        "engine": "coraza",
+        "mode": "enforce",
+        "inspection": "request-headers",
+        "rules": {
+          "format": "header-rules/v1",
+          "items": [
+            {
+              "id": 1001,
+              "header": "X-Fig-Attack",
+              "equals": "attack"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "fig.waf-policy/v1alpha1",
+      "name": "observe-policy",
       "version": "1",
       "spec": {
         "engine": "coraza",
         "mode": "detect",
         "inspection": "request-headers",
         "rules": {
-          "format": "seclang",
-          "inline": "SecRule REQUEST_HEADERS:X-Fig-Attack \"@streq attack\" \"id:1001,phase:1,deny,status:403,nolog\""
+          "format": "header-rules/v1",
+          "items": [
+            {
+              "id": 1001,
+              "header": "X-Fig-Attack",
+              "equals": "attack"
+            }
+          ]
         }
       }
     },
@@ -109,7 +161,7 @@
           },
           {
             "id": "inspect",
-            "module": "fig.waf/v1alpha1",
+            "module": "fig.waf.inspect/v1alpha1",
             "input": {
               "from": "select-policy",
               "type": "fig.waf-policy-ref/v1alpha1"
@@ -125,7 +177,8 @@
               }
             }
           }
-        ]
+        ],
+        "app": "fig.waf/v1alpha1"
       }
     }
   ]

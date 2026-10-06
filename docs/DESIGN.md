@@ -161,9 +161,9 @@ checks on each newly produced upstream result remain explicit before downstream 
 
 ## 3. Specifications, views and request state
 
-The [configuration draft](CONFIG.md) proposes a concrete bundle envelope, typed resource
-references and attachments based on the native Match/WAF spike. It is not wired into
-the current runtime.
+The [configuration draft](CONFIG.md) defines the experimental bundle envelope, typed resource
+references and app attachments consumed by the native WAF app. Match is a primitive;
+WAF owns its composition and policy semantics. Broader runtime activation remains future work.
 
 These are three different objects:
 

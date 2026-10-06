@@ -183,16 +183,40 @@
                     "type": "object",
                     "properties": {
                       "format": {
-                        "const": "seclang"
+                        "const": "header-rules/v1"
                       },
-                      "inline": {
-                        "type": "string",
-                        "minLength": 1
+                      "items": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 128,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "header": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9-]{1,128}$"
+                            },
+                            "equals": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "header",
+                            "equals"
+                          ],
+                          "additionalProperties": false
+                        }
                       }
                     },
                     "required": [
                       "format",
-                      "inline"
+                      "items"
                     ],
                     "additionalProperties": false
                   }
@@ -388,11 +412,15 @@
                         }
                       ]
                     }
+                  },
+                  "app": {
+                    "const": "fig.waf/v1alpha1"
                   }
                 },
                 "required": [
                   "placement",
-                  "steps"
+                  "steps",
+                  "app"
                 ],
                 "additionalProperties": false
               }

@@ -1,6 +1,7 @@
 package envoy_test
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,11 +19,12 @@ import (
 	"testing"
 	"time"
 
+	configrender "github.com/dio/fig/spike/envoy/bootstrap"
 	"github.com/dio/kona/envoytest"
 )
 
 //go:embed envoy.json
-var bootstrap string
+var bootstrapTemplate string
 
 func TestNativeMatch(t *testing.T) {
 	if os.Getenv("ENVOY_BIN") == "" {
@@ -38,6 +42,14 @@ func TestNativeMatch(t *testing.T) {
 	}))
 	t.Cleanup(backend.Close)
 	_, port, _ := net.SplitHostPort(strings.TrimPrefix(backend.URL, "http://"))
+	bundleData, err := os.ReadFile("../../examples/config/waf.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered, err := configrender.Render([]byte(bootstrapTemplate), bundleData)
+	if err != nil {
+		t.Fatal(err)
+	}
 	config := strings.NewReplacer(
 		"/usr/local/lib/libfig_match.so", "{{.Module}}",
 		`"address": "0.0.0.0"`, `"address": "127.0.0.1"`,
@@ -45,7 +57,7 @@ func TestNativeMatch(t *testing.T) {
 		`"port_value": 9901`, `"port_value": {{.AdminPort}}`,
 		`"address": "echo"`, `"address": "127.0.0.1"`,
 		`"port_value": 8080`, `"port_value": `+port,
-	).Replace(bootstrap)
+	).Replace(string(rendered))
 	process := envoytest.Start(t, envoytest.Options{Module: os.Getenv("FIG_MODULE"), Bootstrap: config, Env: []string{"GODEBUG=cgocheck=0"}})
 	client := &http.Client{Timeout: 5 * time.Second}
 	t.Cleanup(client.CloseIdleConnections)
@@ -140,7 +152,6 @@ func TestNativeMatch(t *testing.T) {
 			{"block", "/chat", "attack", "chat-policy", "block", "true", 403},
 			{"detect-only", "/observe", "attack", "observe-policy", "continue", "true", 200},
 			{"baseline-block", "/headers", "attack", "baseline", "block", "true", 403},
-			{"unknown-policy", "/unconfigured", "", "unknown-policy", "error", "false", 503},
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -207,4 +218,50 @@ func TestNativeMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(fmt.Sprintf("native Envoy %s; backend received=%d", version.Version, received.Load()))
+}
+
+// Validation mode loads module configuration too: an unresolved reference must
+// fail before a listener can serve, rather than become request-time pass-through.
+func TestNativeRejectsInvalidBundle(t *testing.T) {
+	if os.Getenv("ENVOY_BIN") == "" {
+		t.Skip("set ENVOY_BIN and FIG_MODULE")
+	}
+	data, err := os.ReadFile("../../examples/config/waf.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, resource := range document["resources"].([]any) {
+		r := resource.(map[string]any)
+		if r["type"] == "fig.waf-policy/v1alpha1" && r["name"] == "baseline" {
+			r["version"] = "wrong-version"
+		}
+	}
+	invalid, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rendered, err := configrender.Render([]byte(bootstrapTemplate), invalid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := strings.ReplaceAll(string(rendered), "/usr/local/lib/libfig_match.so", os.Getenv("FIG_MODULE"))
+	path := filepath.Join(t.TempDir(), "invalid.json")
+	if err := os.WriteFile(path, []byte(config), 0600); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	command := exec.CommandContext(ctx, os.Getenv("ENVOY_BIN"), "-c", path, "--mode", "validate")
+	command.Env = append(os.Environ(), "GODEBUG=cgocheck=0")
+	output, err := command.CombinedOutput()
+	if ctx.Err() != nil {
+		t.Fatalf("validation timed out: %s", output)
+	}
+	if err == nil || !strings.Contains(string(output), "unresolved policy reference") {
+		t.Fatalf("invalid bundle did not fail during native configuration: %v\n%s", err, output)
+	}
 }

@@ -2,14 +2,17 @@ FROM golang:1.27.1-bookworm AS build
 WORKDIR /src
 COPY go.mod ./
 COPY match ./match
+COPY bundle ./bundle
+COPY examples/config ./examples/config
 COPY spike/envoy ./spike/envoy
 WORKDIR /src/spike/envoy
 RUN go mod download
 RUN CGO_ENABLED=1 go build -trimpath -buildmode=c-shared -o /out/libfig_match.so ./module
 RUN CGO_ENABLED=0 go build -trimpath -o /out/fig-echo ./echo
+RUN go run ./cmd/bootstrap -out /out/envoy.json
 FROM envoyproxy/envoy:v1.38.0 AS proxy
 COPY --from=build /out/libfig_match.so /usr/local/lib/libfig_match.so
-COPY spike/envoy/envoy.json /etc/envoy/envoy.json
+COPY --from=build /out/envoy.json /etc/envoy/envoy.json
 ENV GODEBUG=cgocheck=0
 CMD ["envoy", "-c", "/etc/envoy/envoy.json", "--concurrency", "2", "--log-level", "info"]
 FROM gcr.io/distroless/static-debian12:nonroot AS echo

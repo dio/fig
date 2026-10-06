@@ -1,184 +1,178 @@
-# Configuration format: first draft
+# Configuration and encapsulation
 
-Status: v1alpha1 design draft. The native Match/WAF spike exercises the behavior;
-it does **not** load this bundle format yet. [The example](../examples/config/waf.json)
-and [structural schema](../schemas/fig-bundle.schema.json) are review artifacts.
+Status: experimental v1alpha1, consumed by the native WAF app. The
+[example bundle](../examples/config/waf.json) is embedded into the Envoy filter config;
+the module decodes, validates and prepares it during configuration creation. An invalid
+bundle prevents that filter configuration from loading. There is no live-update manager yet.
 
-## What belongs in configuration
+## Primitive versus app
 
-Use JSON-compatible data as the internal contract. YAML may be an authoring syntax.
-Gateway API, AI Gateway APIs and existing policy APIs remain possible user-facing
-surfaces; their adapters compile to this contract. Fig does not require users to
-manage another public CRD.
+**Match is a primitive. WAF is an app.** Apps compose the primitives they need and own
+their domain contracts. There is no WAF knowledge in the Match primitive, and no
+application registry switch inside the bundle decoder.
 
-Separate four concerns:
-
-| Concern | Example | Owner |
+| Layer | Owns | Must not own |
 |---|---|---|
-| Fact extraction and selection | Request path -> WAF policy reference | Match |
-| Prepared application policy | Coraza rules, inspection scope, enforcement mode | WAF |
-| Placement and dependency wiring | WAF consumes early Match output | Composition |
-| Outcome handling | Continue, local block, fail closed on execution error | Host adapter constrained by module contract |
+| `bundle` | Bounded strict decoding, scope/generation envelope, exact references, resource ownership | Match semantics, Coraza, Envoy callbacks |
+| `match` | Extractors, typed predicates, ordered selection, prepared views and evaluation | WAF policy fields, bundle transport, HTTP replies |
+| `spike/envoy/apps/waf` | WAF schema validation, Match output contract, policy resolution, supported composition, outcome mappings | Generic publication infrastructure, Envoy handles |
+| `apps/waf/inspect` | Header-rule validation, Coraza engine preparation and transaction lifecycle | Bundle references, Match, Envoy, HTTP response mapping |
+| `spike/envoy/module/wafapp.go` | Envoy inputs, per-stream result, metadata and local replies | Rule compilation, policy selection algorithms, generic bundle validation |
+| `bootstrap` | Embed supplied JSON into an Envoy fixture | Validate application semantics or prepare engines |
 
-Delivery addresses, TLS material and watched files belong to source/bootstrap config,
-not a rule or Match result. Initial bundles contain resolved configuration bytes; a
-later resource channel may deliver individual resources independently.
+The WAF app uses Match to select a policy reference and resolves it to a prepared
+inspection engine. That resolution is **not upstream Pick**. Pick will resolve a
+logical destination to a host for an app that dispatches upstream. Apps need not use
+every primitive. Future LLM/MCP apps may compose Match, Pick and Adapt without putting
+their fields into either Match or WAF.
 
-## Envelope and identity
+The app currently lives in the spike's nested Go module to keep Coraza and native
+SDK dependencies out of Fig's core module. The app packages themselves import no
+Envoy SDK. This is deliberate experimental placement, not a stable public app API.
 
-The draft bundle carries `apiVersion`, `scope`, `generation`, and `resources`.
-Each resource has `type`, `name`, `version`, and `spec`. Type includes its schema
-version. Resource versions and generation identifiers are opaque strings, compared
-for equality rather than numeric ordering.
+## Authoring and envelope
 
-A reference is `{type, name, version}` within the enclosing scope. Cross-scope
-references are excluded initially. References identify exact dependencies; names
-alone do not silently resolve to whatever version is newest at request time.
+JSON-compatible data is the internal contract; YAML and existing Gateway API or
+AI-oriented APIs can be authoring adapters. This does not require a new public CRD.
+Bootstrap transport addresses, TLS material and file watching remain separate.
 
-A bundle is the first atomic preparation unit: validate all resources, resolve every
-reference, prepare every dependency, and only then activate one generation. Failed
-preparation must not partially publish. This is an initial transport adapter, not a
-requirement that future delivery be state-of-the-world. Future deltas stage resources
-and activate an explicitly complete dependency set.
+A bundle has `apiVersion`, `scope`, `generation`, and `resources`. Each resource has
+`type`, `name`, `version`, and `spec`. Type includes its schema version. Resource
+versions and generation identifiers are opaque equality tokens.
+
+References are `{type, name, version}` within the bundle scope. Cross-scope lookup is
+not supported. A second version of the same type/name in one bundle is rejected.
+Every reference, including defaults, must resolve exactly; nothing resolves to an
+implicit latest version at request time.
+
+The Envoy bootstrap selects an entry and embeds the bundle:
+
+```json
+{
+  "entry": {"type": "fig.pipeline/v1alpha1", "name": "edge", "version": "1"},
+  "bundle": {"apiVersion": "fig/v1alpha1", "scope": "demo", "generation": "1", "resources": []}
+}
+```
+
+The empty resource list above only illustrates the wrapper; it is invalid as a runnable
+bundle. The complete working example is linked above. One fully prepared object owns
+the matcher, prepared policies and action mappings. Factories publish no partial state.
+Each stream retains its factory's object. Replacing a generation dynamically is future
+work; the spike does not claim multi-config atomic updates across independent filters.
 
 ## Match resource
 
-The first spec reuses the Go spike's explicit phases, typed values and predicate
-operators, and adds an output type plus typed dependency references:
+The app lowers its Match resource to the existing primitive. The resource declares
+`phase`, `outputType`, `facts`, `rules`, and an explicit `onNoMatch`:
 
 ```json
 {
   "phase": "request-headers",
   "outputType": "fig.waf-policy-ref/v1alpha1",
-  "facts": [{
-    "name": "path",
-    "extractor": "input-field/v1",
-    "type": "string",
-    "args": {"name": "path"}
-  }],
-  "rules": [{
-    "id": "observe",
-    "when": {"op": "equals", "fact": "path", "values": [{"kind": "string", "text": "/observe"}]},
-    "result": {"policyRef": {"type": "fig.waf-policy/v1alpha1", "name": "observe", "version": "1"}}
-  }],
-  "onNoMatch": {
-    "result": {"policyRef": {"type": "fig.waf-policy/v1alpha1", "name": "baseline", "version": "1"}}
+  "facts": [{"name": "path", "extractor": "input-field/v1", "type": "string", "args": {"name": "path"}}],
+  "rules": [],
+  "onNoMatch": {"result": {"policyRef": {"type": "fig.waf-policy/v1alpha1", "name": "baseline", "version": "1"}}}
+}
+```
+
+`onNoMatch` is either `{"return":"no-match"}` or a typed default result. Invalid and
+pending facts never become a default. The WAF app registers the meaning of
+`fig.waf-policy-ref/v1alpha1` in its compiler, checks all references, and prepares
+`match.Prepared[selection]`; the generic primitive does not know that selection type.
+
+For this app slice only header-phase string fields `path`, `method`, and `authority`
+are available. They are request claims, not authenticated identity. Unknown fields,
+extractors or output types fail compilation. Other apps can use the primitive's body
+extractor with their own lifecycle contracts; this restriction is WAF-app-specific.
+
+## WAF policy resource
+
+```json
+{
+  "engine": "coraza",
+  "mode": "enforce",
+  "inspection": "request-headers",
+  "rules": {
+    "format": "header-rules/v1",
+    "items": [{"id": 1001, "header": "X-Fig-Attack", "equals": "attack"}]
   }
 }
 ```
 
-`onNoMatch` is required: either `{"return":"no-match"}` or a typed result. This
-replaces the spike's implicit nil-default convention at the wire boundary. Pending
-input is never no-match. Invalid input is a failed evaluation, not a default result.
+`mode` is `enforce` or `detect`; both inspect. `header-rules/v1` supports 1–128 rules
+with unique positive IDs, ASCII alphanumeric/hyphen header names of at most 128
+characters, and equality literals of 1–128 ASCII letters, digits, dots, underscores
+or hyphens. The inspection package generates phase-1 SecLang internally. Input cannot
+inject engine-mode directives, includes, arbitrary actions or additional phases.
 
-The installed output schema validates all rule/default values and declares which
-fields are references. `outputType` is open to installed consumers: a routing plan,
-MCP binding or decision definition does not become a WAF-shaped result.
-`input-field/v1` remains an adapter seam. The compiler must know that the host actually
-provides the requested field and its trust/phase/representation; a string in `args`
-does not establish trusted identity. Richer representation and extraction contracts
-remain in the [Match design](primitives/MATCH.md).
+This **replaces the previous unimplemented raw SecLang draft**. The narrow format
+makes the implemented capability explicit. Full SecLang/CRS should be a separately
+versioned, validated preparation adapter with captured file dependencies, not a
+permissive string accepted by this compiler. Body/response WAF remains unimplemented.
 
-## WAF policy resource
+## App composition resource
 
-A WAF policy declares:
+`fig.pipeline/v1alpha1` names its owning `app: fig.waf/v1alpha1`, placement and steps.
+The current app supports exactly:
 
-- `engine`: initially `coraza`.
-- `mode`: `enforce` or `detect`; detection still runs inspection.
-- `inspection`: initially `request-headers` only.
-- `rules`: a SecLang-format inline rule document in this draft.
+1. `fig.match/v1alpha1`, with a Match config reference.
+2. `fig.waf.inspect/v1alpha1`, consuming that step's WAF-policy-reference output.
 
-The engine/mode/scope fields are authoritative. A future compiler must reject
-conflicting SecRuleEngine directives, unsupported phases and unavailable capabilities.
-Inline rules do not imply filesystem Include access: capture and authorize dependencies
-before preparation. This draft does not promise arbitrary SecLang support or CRS.
+Other shapes, additional pipelines, duplicate step IDs, wrong placement, missing
+handoffs, forward references and unsupported module types fail explicitly. This is
+an app-specific compiler, not an implemented generic workflow engine.
 
-The current executable spike has a fixed phase-1 rule matching header
-`X-Fig-Attack: attack`; its policy configuration varies mode only. Accepting configurable
-rules is a subsequent implementation step, not something this document claims is wired.
-Body/response inspection requires phase capabilities, buffering limits and retained
-transactions, so it must not be enabled merely by changing the `inspection` string.
+Step outcomes are distinct:
 
-Mode is colocated with policy for the first slice so the engine and mode prepare
-atomically. An independently streamed mode resource can be added later, with an exact
-policy revision reference as required by the broader design.
+- Match `onNoMatch`: terminal HTTP status 400–599.
+- Match `onError`: terminal HTTP status 400–599.
+- WAF `onBlock`: terminal HTTP status 400–499.
+- WAF `onError`: terminal HTTP status 500–599.
+- Successful inspection: continue, by the module contract.
 
-## Pipeline attachment
+The first slice supports `localReply` status mapping only, not custom response bodies,
+retries or jumps. A required WAF cannot continue on error or denial. Detection-only
+is a policy mode, not a fail-open error handler. Runtime results carry policy, mode,
+matched state, rule ID and next action separately from selection results.
 
-A pipeline declares placement and an ordered list of named steps. Each step references
-an installed module and supplies either a config reference or a typed input from a
-previous step. In the example, `select-policy` produces a WAF-policy selection and
-`inspect` consumes it.
+## Validation and preparation
 
-`onNoMatch`/`onError` on a step describe host behavior for unavailable results. WAF
-`onBlock` describes the response mapping for an actual policy denial. They are not
-interchangeable. A no-match is not an allow; an engine error is not a policy block.
+The [structural schema](../schemas/fig-bundle.schema.json) is useful for tooling, but
+runtime correctness does not depend on a JSON Schema validator. Runtime preparation:
 
-The first actions are bounded and local:
+1. Limits config bytes to 1 MiB and JSON depth to 64; rejects duplicate keys, trailing
+   data, unknown typed fields, null roots and duplicate resource identities.
+2. Validates the chosen app, pipeline shape, placement and response mappings.
+3. Prepares every policy using the WAF-owned schema and rule constraints.
+4. Prepares every Match resource, checks the host fact contract and resolves every
+   policy reference, including unused rules/defaults, to an exact prepared resource.
+5. Returns the executable app only when every step succeeded.
 
-- `continue`: proceed in this chain after a successful component result.
-- `localReply`: terminate processing with the declared HTTP status.
+Unrecognized resource types are rejected by this app compiler. The envelope decoder
+accepts arbitrary resource types; future apps provide their own compiler/registry.
+The decoder returns owned copies, and prepared components retain no mutable caller
+configuration. The current engines have no app-owned external resources; future
+engines/callouts must add explicit prepare-failure cleanup and retained-view leases.
 
-Required WAF inspection uses `onError: localReply(503)` and
-`onBlock: localReply(403)`. It cannot configure `onBlock: continue`; detection-only
-behavior is explicit in the policy instead. No arbitrary `goto`, retries or fallback
-on denial. A terminal action ends the protected path.
+## Running and evidence
 
-The example has no separately configurable `onAllow`: successful inspection continues
-by the module contract. Avoid configuring choices that have only one valid behavior.
-Protocol-specific response mapping belongs to this downstream HTTP attachment, not
-the host-independent Match core.
-
-## Runtime outcome is a different object
-
-An inspection produces a request-owned result such as:
-
-```json
-{
-  "policy": "baseline",
-  "mode": "enforce",
-  "matched": true,
-  "action": "block",
-  "ruleId": 1001
-}
+```sh
+make native-test ENVOY_BIN=/path/to/matching/envoy
 ```
 
-The same rule under `mode: detect` produces `matched: true, action: continue`.
-No match produces `matched: false, action: continue`. Execution failure produces
-`action: error`, mapped by attachment to a terminal response. This is bounded next-action
-selection, not plan execution. Credentials and raw matched content are omitted.
+The test reads the canonical example bundle and embeds it into `fig-waf-app`'s config.
+Envoy calls the app compiler at configuration creation. Live requests then exercise
+policy selection, inspection, detection-only behavior and local reply mappings.
+The legacy body-dependent Match filter remains a separate fixture stage; it has not
+been migrated into this header-only WAF app's bundle and is not claimed to share its
+activation boundary.
 
-## Validation layers
+Negative tests cover wrong versions, output types, late facts, unavailable host facts,
+raw SecLang, wrong placement, missing handoffs, fail-open status mappings, duplicates
+and unknown fields. A native validation test also checks that Envoy rejects an
+unresolved policy reference. A changed-rule test proves rule ID/value are consumed
+from the bundle rather than supplied by a hardcoded smoke rule.
 
-The JSON Schema checks the envelope and coarse resource shapes. It intentionally
-leaves registered extractor arguments and consumer outputs open. It is not the whole
-compiler, and successful JSON Schema validation is not activation readiness.
-
-Semantic preparation must additionally reject:
-
-1. Duplicate resource identities or step/rule/fact IDs.
-2. Missing, wrong-type, out-of-scope or wrong-version references, including defaults.
-3. Unknown extractors/modules/output schemas and incompatible typed predicates.
-4. Cycles, forward or missing handoffs, incompatible placements or representations.
-5. WAF selection unavailable before required inspection, unsupported inspection phases,
-   or an attachment that bypasses required protection on error or block.
-6. Unsupported rules, conflicting engine settings, uncaptured file access and exceeded
-   configuration/body/compilation bounds.
-
-The spike currently validates individual configs and catches an unknown policy at
-request time. The bundle compiler should move that error to preparation; the runtime
-failure remains defense against incomplete or unavailable state.
-
-## Implementation order
-
-1. Review these names and boundaries using the working header WAF and body Match cases.
-2. Implement strict bounded bundle decoding and semantic dependency checking, initially
-   for these three resource types. Unknown keys and duplicate JSON keys must fail.
-3. Lower a validated bundle into the existing module factories; remove handwritten
-   policy selection/handoff naming from the fixture.
-4. Prove invalid bundles do not activate and one request cannot mix revisions.
-5. Add delivery adapters after the preparation/activation contract is exercised.
-
-Open decisions: resource naming conventions, schema registry/discovery, representation
-references, separate mode resources, limits inherited from host policy, and routing-plan
-payloads. Do not freeze a universal component outcome or wire protocol from one WAF test.
+Next boundaries to design: broader app/module descriptors, response representations,
+body buffering contracts, activation/revocation, and delivery adapters. Keep those
+changes outside the Match primitive and inside the layer that owns their semantics.
