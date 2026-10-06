@@ -1,12 +1,13 @@
 # Native Envoy app spike
 
 The fixture runs a **WAF app composed from Match and Coraza inspection**, followed by
-an independent body-Match demonstration, inside one Envoy process.
+a Marker app and an independent body-Match demonstration, inside one Envoy process.
 
 ```text
 canonical WAF bundle -> WAF app compiler -> prepared Match + policies + outcome mappings
                                            |
 request -> fig-waf-app: Match -> resolve policy -> inspect -> continue / local reply
+        -> fig-marker-app: Match -> apply diagnostic value
         -> legacy body Match for /chat -> Envoy router -> echo backend
 ```
 
@@ -83,12 +84,14 @@ No provider routing, actual LLM execution, full WAF/CRS or live bundle updates a
 
 - Root `bundle`: strict decoding and exact resource references; no app knowledge.
 - Root `match`: reusable fact extraction/selection primitive.
+- `apps/marker`: independent Match → literal marker app; no WAF/Coraza/SDK dependency.
+- Root `matchconfig`: shared typed header-resource preparation.
 - `apps/waf`: app compiler and execution, including typed Match output and action mappings.
 - `apps/waf/inspect`: policy preparation and Coraza inspection; no bundle/Match/Envoy imports.
 - `module/wafapp.go`: Envoy callbacks; adapts owned inputs and applies app outcomes.
 - `module/main.go`: legacy independent body Match adapter and factory registration.
 - `bootstrap`: embeds a supplied bundle into the bootstrap template, without compiling it.
-- `envoy.json`: template, containing exactly one `__FIG_BUNDLE_CONFIG__` marker.
+- `envoy.json`: template with separate WAF and Marker bundle placeholders.
 - `cmd/bootstrap`: materializes that template for manual/Docker use.
 - `native_test.go`: real traffic and native invalid-configuration assertions.
 
@@ -152,3 +155,11 @@ This slice does not implement generic workflow execution, body/response WAF, HTT
 qualification, performance budgets, configuration streaming, revocation, EG/k3d,
 remote mTLS or SDS. A complete bundle is prepared atomically for one WAF app factory;
 there is no claim of transactional activation across independent Envoy filters.
+
+## Marker and placement
+
+The fixture also consumes `examples/config/marker.json`: `/chat` selects
+`chat-request`, `/observe` selects `observe-request`, and other paths skip marking.
+Tests assert upstream marker values, spoof removal, independent typed output and
+that a WAF block prevents Marker execution. Hostname-specific activation remains
+[design work](../../docs/ACTIVATION.md); all hosts currently share this fixed chain.

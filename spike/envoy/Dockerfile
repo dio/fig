@@ -2,6 +2,7 @@ FROM golang:1.27.1-bookworm AS build
 WORKDIR /src
 COPY go.mod ./
 COPY match ./match
+COPY matchconfig ./matchconfig
 COPY bundle ./bundle
 COPY examples/config ./examples/config
 COPY spike/envoy ./spike/envoy

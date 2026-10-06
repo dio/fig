@@ -1,13 +1,13 @@
 # Configuration and encapsulation
 
-Status: experimental v1alpha1, consumed by the native WAF app. The
+Status: experimental v1alpha1, consumed by the native WAF and Marker apps. The
 [example bundle](../examples/config/waf.json) is embedded into the Envoy filter config;
 the module decodes, validates and prepares it during configuration creation. An invalid
 bundle prevents that filter configuration from loading. There is no live-update manager yet.
 
 ## Primitive versus app
 
-**Match is a primitive. WAF is an app.** Apps compose the primitives they need and own
+**Match is a primitive. WAF and Marker are apps.** Apps compose the primitives they need and own
 their domain contracts. There is no WAF knowledge in the Match primitive, and no
 application registry switch inside the bundle decoder.
 
@@ -83,7 +83,7 @@ pending facts never become a default. The WAF app registers the meaning of
 For this app slice only header-phase string fields `path`, `method`, and `authority`
 are available. They are request claims, not authenticated identity. Unknown fields,
 extractors or output types fail compilation. Other apps can use the primitive's body
-extractor with their own lifecycle contracts; this restriction is WAF-app-specific.
+extractor with their own lifecycle contracts; this restriction belongs to the shared header-resource adapter.
 
 ## WAF policy resource
 
@@ -176,3 +176,23 @@ from the bundle rather than supplied by a hardcoded smoke rule.
 Next boundaries to design: broader app/module descriptors, response representations,
 body buffering contracts, activation/revocation, and delivery adapters. Keep those
 changes outside the Match primitive and inside the layer that owns their semantics.
+
+## Marker demonstrates the app boundary
+
+The [Marker bundle](../examples/config/marker.json) composes Match then
+`fig.marker.apply/v1alpha1`. Its Match output is `fig.marker-value/v1alpha1`,
+`{"value":"chat-request"}`, with no WAF policy reference. `/chat` and `/observe`
+select different values; other paths explicitly continue without a marker. Match
+errors map to terminal 5xx. Applying the bounded literal is infallible and has no
+configurable error mapping. Marker is diagnostic, not an authorization mechanism.
+
+`matchconfig.PrepareHeaders[T]` shares resource decoding and header-fact validation;
+the caller supplies its output type and validator. The primitive remains unaware of
+apps. `apps/marker` imports neither WAF, Coraza nor the Envoy SDK. Its Envoy adapter
+strips caller marker values and emits its own selected diagnostic value upstream and
+on the response. Each app still compiles its own bundle independently.
+
+The native fixture executes WAF → Marker → legacy body Match. A WAF block prevents
+Marker execution. Host-specific app attachment belongs above these app pipelines;
+see [hostname placement and activation](ACTIVATION.md) for the proposed Lime adapter.
+That placement design is not implemented by the current fixed-chain fixture.

@@ -715,3 +715,9 @@ This proposal does not implement a general workflow engine, arbitrary uploaded c
 a new management permission system, a universal policy payload, or production PKI.
 It does not promise compatibility with current Plum, APIx, Citrus, xDS or Gateway API
 until the corresponding adapters and behavior have been qualified.
+
+## Host attachment
+
+See [Hostname placement and app activation](ACTIVATION.md) for the proposed Lime
+adapter: exact-host placements select ordered app instances above app-owned pipelines.
+Marker is the second implemented app demonstrating a distinct typed Match result.

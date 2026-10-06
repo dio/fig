@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dio/fig/bundle"
 	configrender "github.com/dio/fig/spike/envoy/bootstrap"
 	"github.com/dio/kona/envoytest"
 )
@@ -38,7 +39,7 @@ func TestNativeMatch(t *testing.T) {
 			http.Error(w, err.Error(), 413)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{"policy": r.Header.Get("x-fig-policy"), "plan": r.Header.Get("x-fig-plan"), "body": string(body)})
+		_ = json.NewEncoder(w).Encode(map[string]string{"policy": r.Header.Get("x-fig-policy"), "plan": r.Header.Get("x-fig-plan"), "body": string(body), "marker": r.Header.Get("x-fig-marker")})
 	}))
 	t.Cleanup(backend.Close)
 	_, port, _ := net.SplitHostPort(strings.TrimPrefix(backend.URL, "http://"))
@@ -46,7 +47,7 @@ func TestNativeMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rendered, err := configrender.Render([]byte(bootstrapTemplate), bundleData)
+	rendered, err := renderApps(t, bundleData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,6 +70,7 @@ func TestNativeMatch(t *testing.T) {
 		req.Header.Set("content-type", contentType)
 		req.Header.Set("x-fig-policy", "spoofed")
 		req.Header.Set("x-fig-plan", "spoofed")
+		req.Header.Set("x-fig-marker", "spoofed")
 		if encoding != "" {
 			req.Header.Set("content-encoding", encoding)
 		}
@@ -83,7 +85,7 @@ func TestNativeMatch(t *testing.T) {
 	}
 	t.Run("header-default", func(t *testing.T) {
 		status, result, err := send("/headers", "", "application/json", "")
-		if err != nil || status != 200 || result["policy"] != "baseline" || result["plan"] != "" {
+		if err != nil || status != 200 || result["policy"] != "baseline" || result["plan"] != "" || result["marker"] != "" {
 			t.Fatalf("%d %v %v", status, result, err)
 		}
 	})
@@ -118,7 +120,7 @@ func TestNativeMatch(t *testing.T) {
 			expected := before
 			if status == 200 {
 				expected++
-				if result["plan"] != "support" || result["policy"] != "chat-policy" || result["body"] != tc.body {
+				if result["plan"] != "support" || result["policy"] != "chat-policy" || result["body"] != tc.body || result["marker"] != "chat-request" {
 					t.Fatalf("incorrect handoff: %v", result)
 				}
 			}
@@ -177,6 +179,15 @@ func TestNativeMatch(t *testing.T) {
 					resp.Header.Get("x-fig-waf-matched") != tc.matched || resp.Header.Get("x-fig-waf-policy") != tc.policy {
 					t.Fatalf("status=%d headers=%v body=%s", resp.StatusCode, resp.Header, body)
 				}
+				if tc.status == 403 && (resp.Header.Get("x-fig-marker") != "" || resp.Header.Get("x-fig-marker-action") != "") {
+					t.Fatalf("Marker executed after terminal WAF: %v", resp.Header)
+				}
+				if tc.status == 200 && tc.path == "/chat" && resp.Header.Get("x-fig-marker") != "chat-request" {
+					t.Fatalf("Marker outcome missing on WAF response: %v", resp.Header)
+				}
+				if tc.path == "/observe" && resp.Header.Get("x-fig-marker") != "observe-request" {
+					t.Fatalf("Marker did not select independent output: %v", resp.Header)
+				}
 				expected := before
 				if tc.status == 200 {
 					expected++
@@ -196,7 +207,7 @@ func TestNativeMatch(t *testing.T) {
 				defer wg.Done()
 				body := `{"model":"support-chat","id":` + strconv.Itoa(i) + `}`
 				status, result, err := send("/chat", body, "application/json", "")
-				if err != nil || status != 200 || result["body"] != body || result["plan"] != "support" {
+				if err != nil || status != 200 || result["body"] != body || result["plan"] != "support" || result["marker"] != "chat-request" {
 					t.Errorf("%d %v %v", status, result, err)
 				}
 			}()
@@ -244,7 +255,7 @@ func TestNativeRejectsInvalidBundle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rendered, err := configrender.Render([]byte(bootstrapTemplate), invalid)
+	rendered, err := renderApps(t, invalid)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,4 +275,16 @@ func TestNativeRejectsInvalidBundle(t *testing.T) {
 	if err == nil || !strings.Contains(string(output), "unresolved policy reference") {
 		t.Fatalf("invalid bundle did not fail during native configuration: %v\n%s", err, output)
 	}
+}
+
+func renderApps(t *testing.T, wafData []byte) ([]byte, error) {
+	t.Helper()
+	markerData, err := os.ReadFile("../../examples/config/marker.json")
+	if err != nil {
+		return nil, err
+	}
+	return configrender.Render([]byte(bootstrapTemplate),
+		configrender.Binding{Name: "WAF", Entry: bundle.Ref{Type: "fig.pipeline/v1alpha1", Name: "edge", Version: "1"}, Data: wafData},
+		configrender.Binding{Name: "MARKER", Entry: bundle.Ref{Type: "fig.pipeline/v1alpha1", Name: "mark", Version: "1"}, Data: markerData},
+	)
 }

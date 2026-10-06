@@ -67,7 +67,27 @@
                         "filter_name": "fig-waf-app",
                         "filter_config": {
                           "@type": "type.googleapis.com/google.protobuf.StringValue",
-                          "value": "__FIG_BUNDLE_CONFIG__"
+                          "value": "__FIG_WAF_BUNDLE_CONFIG__"
+                        }
+                      }
+                    },
+                    {
+                      "name": "fig-marker-app",
+                      "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.filters.http.dynamic_modules.v3.DynamicModuleFilter",
+                        "dynamic_module_config": {
+                          "name": "fig_match",
+                          "module": {
+                            "local": {
+                              "filename": "/usr/local/lib/libfig_match.so"
+                            }
+                          },
+                          "do_not_close": true
+                        },
+                        "filter_name": "fig-marker-app",
+                        "filter_config": {
+                          "@type": "type.googleapis.com/google.protobuf.StringValue",
+                          "value": "__FIG_MARKER_BUNDLE_CONFIG__"
                         }
                       }
                     },

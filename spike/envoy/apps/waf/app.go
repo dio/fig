@@ -3,11 +3,11 @@
 package waf
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/dio/fig/bundle"
 	"github.com/dio/fig/match"
+	"github.com/dio/fig/matchconfig"
 	"github.com/dio/fig/spike/envoy/apps/waf/inspect"
 )
 
@@ -20,16 +20,6 @@ const (
 
 type selection struct {
 	PolicyRef bundle.Ref `json:"policyRef"`
-}
-type matchSpec struct {
-	Phase      match.Phase      `json:"phase"`
-	OutputType string           `json:"outputType"`
-	Facts      []match.FactSpec `json:"facts"`
-	Rules      []match.Rule     `json:"rules"`
-	OnNoMatch  struct {
-		Return string          `json:"return,omitempty"`
-		Result json.RawMessage `json:"result,omitempty"`
-	} `json:"onNoMatch"`
 }
 type reply struct {
 	LocalReply struct {
@@ -153,31 +143,6 @@ func validReply(r *reply, min, max int) bool {
 	return r != nil && r.LocalReply.Status >= min && r.LocalReply.Status <= max
 }
 func (p *Prepared) prepareMatch(resource bundle.Resource) (*match.Prepared[selection], error) {
-	var s matchSpec
-	if err := bundle.DecodeSpec(resource.Spec, &s); err != nil {
-		return nil, err
-	}
-	if s.Phase != match.Headers || s.OutputType != SelectionType {
-		return nil, fmt.Errorf("WAF selection requires header-phase policy output")
-	}
-	for _, fact := range s.Facts {
-		if fact.Extractor != "input-field/v1" || fact.Type != match.String {
-			return nil, fmt.Errorf("unsupported header extractor")
-		}
-		var args struct {
-			Name string `json:"name"`
-		}
-		if err := bundle.DecodeSpec(fact.Args, &args); err != nil {
-			return nil, err
-		}
-		if args.Name != "path" && args.Name != "method" && args.Name != "authority" {
-			return nil, fmt.Errorf("host does not supply field %q", args.Name)
-		}
-	}
-	hasDefault := s.OnNoMatch.Result != nil
-	if hasDefault && s.OnNoMatch.Return != "" || !hasDefault && s.OnNoMatch.Return != "no-match" {
-		return nil, fmt.Errorf("explicit onNoMatch result or no-match required")
-	}
 	validate := func(value selection) error {
 		if value.PolicyRef.Type != PolicyType {
 			return fmt.Errorf("wrong policy reference type")
@@ -187,10 +152,7 @@ func (p *Prepared) prepareMatch(resource bundle.Resource) (*match.Prepared[selec
 		}
 		return nil
 	}
-	// Match's decoder validates output shape; envelope decoding already rejects duplicates.
-	return match.Prepare[selection](match.Spec{
-		Schema: "fig.match/v1", Name: resource.Name, Revision: resource.Version, Phase: s.Phase, Facts: s.Facts, Rules: s.Rules, Default: s.OnNoMatch.Result,
-	}, match.Builtins(), validate)
+	return matchconfig.PrepareHeaders(resource, SelectionType, validate)
 }
 func (p *Prepared) Execute(req inspect.Request, path string) Result {
 	result := Result{Scope: p.scope, Generation: p.generation}

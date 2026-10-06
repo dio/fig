@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/dio/fig/bundle"
 	wafapp "github.com/dio/fig/spike/envoy/apps/waf"
 	"github.com/dio/fig/spike/envoy/apps/waf/inspect"
 	"github.com/envoyproxy/envoy/source/extensions/dynamic_modules/sdk/go/shared"
@@ -20,11 +19,8 @@ type wafAppFactory struct {
 }
 
 func (*wafAppConfigFactory) Create(_ shared.HttpFilterConfigHandle, data []byte) (shared.HttpFilterFactory, error) {
-	var bootstrap struct {
-		Entry  bundle.Ref      `json:"entry"`
-		Bundle json.RawMessage `json:"bundle"`
-	}
-	if err := bundle.DecodeSpec(data, &bootstrap); err != nil {
+	bootstrap, err := decodeAppConfig(data)
+	if err != nil {
 		return nil, err
 	}
 	prepared, err := wafapp.Compile(bootstrap.Bundle, bootstrap.Entry)

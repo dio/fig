@@ -314,27 +314,43 @@
                           "additionalProperties": false
                         },
                         "onNoMatch": {
-                          "type": "object",
-                          "properties": {
-                            "localReply": {
+                          "oneOf": [
+                            {
                               "type": "object",
                               "properties": {
-                                "status": {
-                                  "type": "integer",
-                                  "minimum": 400,
-                                  "maximum": 599
+                                "localReply": {
+                                  "type": "object",
+                                  "properties": {
+                                    "status": {
+                                      "type": "integer",
+                                      "minimum": 400,
+                                      "maximum": 599
+                                    }
+                                  },
+                                  "required": [
+                                    "status"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
                               "required": [
-                                "status"
+                                "localReply"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "continue": {
+                                  "const": true
+                                }
+                              },
+                              "required": [
+                                "continue"
                               ],
                               "additionalProperties": false
                             }
-                          },
-                          "required": [
-                            "localReply"
-                          ],
-                          "additionalProperties": false
+                          ]
                         },
                         "onBlock": {
                           "type": "object",
@@ -385,8 +401,7 @@
                       },
                       "required": [
                         "id",
-                        "module",
-                        "onError"
+                        "module"
                       ],
                       "additionalProperties": false,
                       "oneOf": [
@@ -414,7 +429,10 @@
                     }
                   },
                   "app": {
-                    "const": "fig.waf/v1alpha1"
+                    "enum": [
+                      "fig.waf/v1alpha1",
+                      "fig.marker/v1alpha1"
+                    ]
                   }
                 },
                 "required": [
