@@ -20,19 +20,19 @@ The experimental [Match primitive](match/README.md) implements preparation, type
 fact extraction and selection. Use `make test` for all modules. The broader runtime
 remains a design proposal; APIs and schemas are not stable.
 
-## Interactive local demo
+## Interactive local runtime
 
 Follow [the two-terminal walkthrough](docs/demo.md) to start one Envoy, discover
 `waf:SetMode` / `marker:SetValue`, preview changes, and verify their effect on traffic.
 
 ```sh
-make demo-build
-./bin/fig demo init --dir /tmp/fig-demo
-./bin/fig serve --dir /tmp/fig-demo up --envoy "$HOME/.tetrate/bin/envoy"
+make build
+./bin/fig init --dir /tmp/fig
+./bin/fig serve --dir /tmp/fig up --envoy "$HOME/.tetrate/bin/envoy"
 ```
 
 Changed configurations restart Envoy; no-op actions preserve its PID. Configuration
-persists in the private demo directory. Apps own schemas and transformations; the
+persists in the private state directory. Apps own schemas and transformations; the
 supervisor owns complete-chain activation and regenerates dependent handoff bindings.
 
 ## Single-Envoy native tests — no Docker
@@ -80,7 +80,7 @@ apps/                       independently versioned app modules
   waf/envoy/                independent Envoy adapter module
 hosts/envoy/                separate Go module: Envoy SDK and host integration
   cmd/fig-envoy/             c-shared library entry point
-  cmd/fig/                   interactive demo composition root
+  cmd/fig/                   local runtime composition root
   bootstrap/                 shared fixed-chain renderer
   internal/local/            supervisor, snapshots and generic control client
   internal/filter/           standalone Match demo; no app imports

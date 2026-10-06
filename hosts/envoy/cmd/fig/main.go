@@ -1,4 +1,4 @@
-// Command fig runs the local native demo and dispatches app-owned actions.
+// Command fig runs the local native runtime and dispatches app-owned actions.
 package main
 
 import (
@@ -55,13 +55,13 @@ func run(args []string) error {
 		return local.Child(args[1:])
 	}
 	if len(args) == 0 {
-		return fmt.Errorf("usage: fig demo init --dir DIR | fig serve --dir DIR up|status|inspect|action|down")
+		return fmt.Errorf("usage: fig init --dir DIR | fig serve --dir DIR up|status|inspect|action|down")
 	}
-	if len(args) >= 2 && args[0] == "demo" && args[1] == "init" {
-		f := flags("demo init")
-		dir := f.String("dir", "", "new private demo directory")
+	if args[0] == "init" {
+		f := flags("init")
+		dir := f.String("dir", "", "new private state directory")
 		port := f.Int("port", 18080, "loopback proxy port")
-		if err := f.Parse(args[2:]); err != nil {
+		if err := f.Parse(args[1:]); err != nil {
 			return err
 		}
 		if *dir == "" || f.NArg() != 0 {
@@ -79,10 +79,10 @@ func run(args []string) error {
 		return nil
 	}
 	if args[0] != "serve" {
-		return fmt.Errorf("expected demo init or serve")
+		return fmt.Errorf("expected init or serve")
 	}
 	f := flags("serve")
-	dir := f.String("dir", "", "demo directory")
+	dir := f.String("dir", "", "state directory")
 	if err := f.Parse(args[1:]); err != nil {
 		return err
 	}

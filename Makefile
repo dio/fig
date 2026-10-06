@@ -16,8 +16,8 @@ native-test:
 	cd apps/waf/envoy && go test ./...
 	$(MAKE) -C hosts/envoy native-test
 
-.PHONY: demo-build
-demo-build:
+.PHONY: build
+build:
 	$(MAKE) -C hosts/envoy native-build
 	mkdir -p bin
 	cp hosts/envoy/.bin/fig bin/fig

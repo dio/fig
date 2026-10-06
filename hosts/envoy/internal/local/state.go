@@ -1,4 +1,4 @@
-// Package local owns the native demo lifecycle and generic action transport.
+// Package local owns the native runtime lifecycle and generic action transport.
 package local
 
 import (
@@ -127,7 +127,7 @@ func load(dir string) (Snapshot, error) {
 		return Snapshot{}, err
 	}
 	if !info.IsDir() || info.Mode().Perm() != 0700 {
-		return Snapshot{}, fmt.Errorf("demo directory must be private (0700), not a symlink")
+		return Snapshot{}, fmt.Errorf("state directory must be private (0700), not a symlink")
 	}
 	data, err := os.ReadFile(filepath.Join(dir, "active.json"))
 	if err != nil {

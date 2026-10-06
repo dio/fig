@@ -37,18 +37,18 @@ Stable supervisor identity does not imply stable Envoy PID or zero downtime.
 
 ## Demo experience
 
-These commands are implemented. Use two terminals. `make demo-build` builds the CLI
+These commands are implemented. Use two terminals. `make build` builds the CLI
 and native module together. The walkthrough has expected output and recovery steps.
 
 Terminal A:
 
 ```sh
-make demo-build
-./bin/fig demo init --dir /tmp/fig-demo
-./bin/fig serve --dir /tmp/fig-demo up --envoy "$HOME/.tetrate/bin/envoy"
+make build
+./bin/fig init --dir /tmp/fig
+./bin/fig serve --dir /tmp/fig up --envoy "$HOME/.tetrate/bin/envoy"
 ```
 
-`demo init` creates an explicit local composition with instances `waf-a` and
+`fig init` creates an explicit local composition with instances `waf-a` and
 `marker-a`, copies canonical bundles, and selects the WAF → Marker handoff example.
 It refuses to overwrite existing state. The first preset uses the fixed downstream
 chain on all hosts, proxy port 18080, and a loopback demo echo backend. It does not
@@ -58,18 +58,18 @@ Envoy, the backend and the local control socket. Ctrl-C stops all three.
 Terminal B:
 
 ```sh
-./bin/fig serve --dir /tmp/fig-demo status
-./bin/fig serve --dir /tmp/fig-demo action
-./bin/fig serve --dir /tmp/fig-demo action waf:SetMode --instance waf-a --help
+./bin/fig serve --dir /tmp/fig status
+./bin/fig serve --dir /tmp/fig action
+./bin/fig serve --dir /tmp/fig action waf:SetMode --instance waf-a --help
 curl -i -H 'X-Fig-Attack: attack' http://127.0.0.1:18080/headers
 ```
 
 Expected initial traffic: 403, with no Marker execution. Preview then apply:
 
 ```sh
-./bin/fig serve --dir /tmp/fig-demo action waf:SetMode --instance waf-a --input '{"policy":"baseline","mode":"detect"}' --dry-run
+./bin/fig serve --dir /tmp/fig action waf:SetMode --instance waf-a --input '{"policy":"baseline","mode":"detect"}' --dry-run
 curl -i -H 'X-Fig-Attack: attack' http://127.0.0.1:18080/headers
-./bin/fig serve --dir /tmp/fig-demo action waf:SetMode --instance waf-a --input '{"policy":"baseline","mode":"detect"}'
+./bin/fig serve --dir /tmp/fig action waf:SetMode --instance waf-a --input '{"policy":"baseline","mode":"detect"}'
 curl -i -H 'X-Fig-Attack: attack' http://127.0.0.1:18080/headers
 ```
 
@@ -79,13 +79,13 @@ inspects. These labels are selected from filter-state input, never a caller head
 Then demonstrate independent app control:
 
 ```sh
-./bin/fig serve --dir /tmp/fig-demo action marker:SetValue --instance marker-a --input '{"match":"select-marker","rule":"detected","value":"review-needed"}' --dry-run
-./bin/fig serve --dir /tmp/fig-demo action marker:SetValue --instance marker-a --input '{"match":"select-marker","rule":"detected","value":"review-needed"}'
+./bin/fig serve --dir /tmp/fig action marker:SetValue --instance marker-a --input '{"match":"select-marker","rule":"detected","value":"review-needed"}' --dry-run
+./bin/fig serve --dir /tmp/fig action marker:SetValue --instance marker-a --input '{"match":"select-marker","rule":"detected","value":"review-needed"}'
 curl -i -H 'X-Fig-Attack: attack' http://127.0.0.1:18080/headers
-./bin/fig serve --dir /tmp/fig-demo action waf:SetMode --instance waf-a --input '{"policy":"baseline","mode":"enforce"}'
+./bin/fig serve --dir /tmp/fig action waf:SetMode --instance waf-a --input '{"policy":"baseline","mode":"enforce"}'
 curl -i -H 'X-Fig-Attack: attack' http://127.0.0.1:18080/headers
-./bin/fig serve --dir /tmp/fig-demo inspect --json
-./bin/fig serve --dir /tmp/fig-demo down
+./bin/fig serve --dir /tmp/fig inspect --json
+./bin/fig serve --dir /tmp/fig down
 ```
 
 Expected: marker becomes `review-needed`, then restoring enforcement returns 403.
@@ -173,7 +173,7 @@ last activation error. Discovery/help never mutates state.
 
 ## Source files and persistence
 
-`demo init` imports the example files into supervisor-owned revisioned snapshots.
+`fig init` imports the example files into supervisor-owned revisioned snapshots.
 Actions modify those snapshots. They do not rewrite files in the Fig checkout or
 silently modify the original import sources. `up` resumes the last committed snapshot.
 `inspect` exposes that effective configuration and its provenance.

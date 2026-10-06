@@ -173,6 +173,6 @@ the parsed JSON body is still owned by its original filter.
 ## Interactive operation
 
 Use [the local demo walkthrough](demo.md) for a foreground supervisor, action discovery,
-configuration previews and persistent mode/marker changes. `make demo-build` creates
+configuration previews and persistent mode/marker changes. `make build` creates
 `bin/fig` and its matching library. `make native-test` also builds the CLI and runs
-`TestNativeDemo`; existing native traffic tests share the same bootstrap renderer.
+`TestNativeServe`; existing native traffic tests share the same bootstrap renderer.

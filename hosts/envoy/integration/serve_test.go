@@ -18,12 +18,12 @@ import (
 	"github.com/dio/fig/hosts/envoy/internal/local"
 )
 
-func TestNativeDemo(t *testing.T) {
+func TestNativeServe(t *testing.T) {
 	cli, envoy := os.Getenv("FIG_CLI"), os.Getenv("ENVOY_BIN")
 	if cli == "" || envoy == "" {
 		t.Skip("set FIG_CLI and ENVOY_BIN")
 	}
-	root, err := os.MkdirTemp("/tmp", "fig-demo-test-")
+	root, err := os.MkdirTemp("/tmp", "fig-serve-test-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,9 +50,9 @@ func TestNativeDemo(t *testing.T) {
 		}
 		return out
 	}
-	run("demo", "init", "--dir", dir, "--port", fmt.Sprint(port))
-	if _, err := command("", "demo", "init", "--dir", dir); err == nil {
-		t.Fatal("overwrote existing demo")
+	run("init", "--dir", dir, "--port", fmt.Sprint(port))
+	if _, err := command("", "init", "--dir", dir); err == nil {
+		t.Fatal("overwrote existing instance")
 	}
 	var cmd *exec.Cmd
 	var done chan error

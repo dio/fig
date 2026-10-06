@@ -81,7 +81,7 @@ func Run(ctx context.Context, o Options) error {
 	}
 	defer lock.Close()
 	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
-		return fmt.Errorf("demo already owned by a supervisor or its draining Envoy: %w", err)
+		return fmt.Errorf("instance already owned by a supervisor or its draining Envoy: %w", err)
 	}
 	s, err := load(dir)
 	if err != nil {
@@ -193,7 +193,7 @@ func (s *supervisor) launch(snapshot Snapshot) error {
 	if err := os.WriteFile(path, data, 0600); err != nil {
 		return err
 	}
-	// Only the last launch log is retained; it is bounded by operator demo duration.
+	// Only the last launch log is retained; it is bounded by local runtime duration.
 	log := filepath.Join(s.options.Dir, "envoy.log")
 	if err := os.WriteFile(log, nil, 0600); err != nil {
 		return err
